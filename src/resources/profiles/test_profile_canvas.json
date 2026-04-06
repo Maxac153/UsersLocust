@@ -1,0 +1,57 @@
+{
+  "elements": {
+    "t1_upload_avatar": {
+      "x": 400,
+      "y": 280,
+      "profile": {
+        "RUN": {
+          "ENV": "input/env/redis/redis.json",
+          "LOAD_GENERATOR": "localhost",
+          "TEST_PATH": "src/tests/system_users/t3_upload_avatar/upload_avatar_test.js"
+        },
+        "PROFILE": {
+          "UPLOAD_AVATAR_SCENARIO": {
+            "PACING": 3,
+            "STEPS": [
+              {
+                "TPS": 0.01,
+                "RAMP_TIME": 1,
+                "HOLD_TIME": 10
+              }
+            ]
+          }
+        },
+        "PROPERTIES": {
+          "REDIS_KEY_READ": "users_t3_upload_avatar"
+        }
+      }
+    }
+  },
+  "connections": [
+    {
+      "from": "t1_authorization",
+      "to": "t2_authorization",
+      "type": "->",
+      "direction": "uni"
+    }
+  ],
+  "form": {
+    "x": 50,
+    "y": 50,
+    "width": 1280,
+    "height": 720
+  },
+  "COMMON_SETTINGS": {
+    "RUN_SETTINGS": {
+      "DATASOURCE_URL": "http://localhost:8086",
+      "METRICS_BACKEND": "influxdb",
+      "PROFILE_NAME": "debug_profile",
+      "SYSTEM_NAME": "users",
+      "PERCENT_PROFILE": 1.0,
+      "LOG_LEVEL": "error"
+    },
+    "PROPERTIES": {
+      "DEBUG_ENABLE": "false"
+    }
+  }
+}

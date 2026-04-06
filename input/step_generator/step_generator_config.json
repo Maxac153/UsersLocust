@@ -1,0 +1,17 @@
+[
+  {
+    "percentageStep": 1.0,
+    "rumpTime": 15.0,
+    "holdTime": 30.0
+  },
+  {
+    "percentageStep": 1.2,
+    "rumpTime": 15.0,
+    "holdTime": 30.0
+  },
+  {
+    "percentageStep": 1.4,
+    "rumpTime": 5.0,
+    "holdTime": 40.0
+  }
+]

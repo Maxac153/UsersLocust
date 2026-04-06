@@ -1,0 +1,5 @@
+{
+  "1": "ru.gatling.users.t1_authorization.AuthorizationAdminSimulation",
+  "2": "ru.gatling.users.t1_authorization.AuthorizationUserSimulation",
+  "3": "ru.gatling.users.t2_registration.RegistrationSimulation"
+}

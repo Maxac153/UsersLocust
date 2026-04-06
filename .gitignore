@@ -43,4 +43,5 @@ build/
 /pre_gen_profile.json
 /output/
 /pre_gen_profile/
-/test.py
+/src/test.py
+poetry.lock
