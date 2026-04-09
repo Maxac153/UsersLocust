@@ -6,4 +6,3 @@ class Form(BaseModel):
     y: int
     width: int
     height: int
-    gridSize: int

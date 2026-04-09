@@ -28,7 +28,7 @@ class Accounts(HttpUser):
 
     @task
     @transaction("uc_reqres_1_create_users")
-    def create_users(self) -> None | Exception:
+    def create_users(self) -> Exception | None:
         with self.client.post(
                 catch_response=True,
                 name="ur_reqres_1_rest_post_create_users",

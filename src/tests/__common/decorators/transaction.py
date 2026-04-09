@@ -18,6 +18,7 @@ def transaction(transaction_name: str) -> Callable[[Callable[..., Any]], Callabl
             event_data = LocustRequestEvent(
                 name=transaction_name,
                 response_time=int((time.time() - start_time) * 1000),
+                exception=result
             )
             events.request.fire(**event_data.model_dump())
             return result

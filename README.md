@@ -330,7 +330,7 @@ poetry install
 Запуск тестов:
 
 ```bash
-locust -f src/tests/system_reqres/t1_create_users/create_users.py
+locust -f src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py --headless --PACING=2.0 --STAGES='[{"duration":60,"users":1,"spawn_rate":1},{"duration":120,"users":2,"spawn_rate":1}]' --DEBUG_ENABLE=false --host=localhost
 ```
 
 ```bash

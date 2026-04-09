@@ -2,10 +2,9 @@ from pydantic import BaseModel
 
 
 class RunSettings(BaseModel):
+    DATASOURCE_URL: str
+    METRICS_BACKEND: str
     PROFILE_NAME: str
     SYSTEM_NAME: str
-    LEVEL_CONSOLE_LOG: str
-    LEVEL_FILE_LOG: str
-    DATASOURCE_HOST: str
-    DATASOURCE_PORT: int
-    PERCENT_PROFILE: int
+    PERCENT_PROFILE: float
+    LOG_LEVEL: str

@@ -1,0 +1,134 @@
+{
+  "elements": {
+    "t1_authorization": {
+      "x": 300,
+      "y": 160,
+      "profile": {
+        "RUN": {
+          "ENV": "input/env/redis/redis.json",
+          "LOAD_GENERATOR": "localhost",
+          "TEST_PATH": "src/tests/system_users/t1_authorization/authorization_test.js"
+        },
+        "PROFILE": {
+          "AUTHORIZATION_ADMIN_SCENARIO": {
+            "PACING": 10,
+            "STEPS": [
+              {
+                "TPS": 0.1,
+                "RAMP_TIME": 1,
+                "HOLD_TIME": 3
+              },
+              {
+                "TPS": 0.2,
+                "RAMP_TIME": 1,
+                "HOLD_TIME": 3
+              }
+            ]
+          },
+          "AUTHORIZATION_USERS_SCENARIO": {
+            "PACING": 10,
+            "STEPS": [
+              {
+                "TPS": 0.1,
+                "RAMP_TIME": 1,
+                "HOLD_TIME": 3
+              },
+              {
+                "TPS": 0.0,
+                "RAMP_TIME": 1,
+                "HOLD_TIME": 3
+              },
+              {
+                "TPS": 0.1,
+                "RAMP_TIME": 1,
+                "HOLD_TIME": 3
+              }
+            ]
+          }
+        },
+        "PROPERTIES": {
+          "REDIS_KEY_ADD": "users_t1_authorization"
+        }
+      }
+    },
+    "t2_registration": {
+      "x": 400,
+      "y": 280,
+      "profile": {
+        "RUN": {
+          "ENV": "input/env/redis/redis.json",
+          "LOAD_GENERATOR": "localhost",
+          "TEST_PATH": "src/tests/system_users/t2_registration/registration_test.js"
+        },
+        "PROFILE": {
+          "REGISTRATION_SCENARIO": {
+            "PACING": 5,
+            "STEPS": [
+              {
+                "TPS": 0.5,
+                "RAMP_TIME": 1,
+                "HOLD_TIME": 5
+              }
+            ]
+          }
+        },
+        "PROPERTIES": {
+          "REDIS_KEY_READ": "users_t2_registration"
+        }
+      }
+    },
+    "t3_upload_avatar": {
+      "x": 400,
+      "y": 280,
+      "profile": {
+        "RUN": {
+          "ENV": "input/env/redis/redis.json",
+          "LOAD_GENERATOR": "localhost",
+          "TEST_PATH": "src/tests/system_users/t3_upload_avatar/upload_avatar_test.js"
+        },
+        "PROFILE": {
+          "UPLOAD_AVATAR_SCENARIO": {
+            "PACING": 3,
+            "STEPS": [
+              {
+                "TPS": 0.01,
+                "RAMP_TIME": 1,
+                "HOLD_TIME": 10
+              }
+            ]
+          }
+        },
+        "PROPERTIES": {
+          "REDIS_KEY_READ": "users_t3_upload_avatar"
+        }
+      }
+    }
+  },
+  "connections": [
+    {
+      "from": "t1_authorization",
+      "to": "t2_authorization",
+      "type": "->",
+      "direction": "uni"
+    }
+  ],
+  "form": {
+    "x": 50,
+    "y": 50,
+    "width": 1280,
+    "height": 720
+  },
+  "COMMON_SETTINGS": {
+    "RUN_SETTINGS": {
+      "DATASOURCE_URL": "http://localhost:8086/k6",
+      "METRICS_BACKEND": "influxdb",
+      "PROFILE_NAME": "debug_profile",
+      "SYSTEM_NAME": "users",
+      "PERCENT_PROFILE": 1.0,
+      "LOG_LEVEL": "error"
+    },
+    "PROPERTIES": {
+      "DEBUG_ENABLE": "false"
+    }
+  }
+}
