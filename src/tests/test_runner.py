@@ -6,44 +6,52 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import List
 
 from src.tests.__common.helpers.profile_helper import ProfileHelper
+from src.tests.__common.helpers.profile_log_helper import ProfileLogHelper
 from src.tests.__common.helpers.setup_logger_helpers import setup_logger
 from src.tests.__common.models.profile.tests_param import TestsParam
 
 
 class ParallelLocustRunner:
-    def __init__(self, profiles: TestsParam) -> None:
-        self.logger = setup_logger()
+    def __init__(
+            self,
+            profiles: TestsParam,
+            debug_enable: str,
+            data_time_now: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    ) -> None:
+        self.data_time_now = data_time_now
+        self.logger = setup_logger(date_time=self.data_time_now)
         self.processes_lock = threading.Lock()
         self.processes = []
         self.profiles = profiles
+        self.debug_enable = debug_enable
 
     def create_commands(self) -> List[List[str]]:
-        """Генерирует команды для всех тестов"""
+        """Generates Commands For All Tests"""
         commands = []
-        debug_enable = self.profiles.COMMON_SETTINGS.PROPERTIES["DEBUG_ENABLE"]
         for test_name in self.profiles.elements:
             test = self.profiles.elements[test_name]
             for scenario_name in test.profile.PROFILE:
-                pacing, stages = ProfileHelper.close_profile(scenario_name, debug_enable, test.profile)
+                pacing, stages = ProfileHelper.close_profile(scenario_name, self.debug_enable, test.profile)
                 cmd = [
                     "locust", "-f", test.profile.RUN.TEST_PATH,
-                    f"--DEBUG_ENABLE={debug_enable}",
+                    f"--DEBUG_ENABLE={self.debug_enable}",
                     f"--PACING={pacing}",
                     f"--STAGES={json.dumps(stages)}",
-                    f"--PROPERTIES={json.dumps(test.profile.PROPERTIES)}"
+                    f"--PROPERTIES={json.dumps(test.profile.PROPERTIES)}",
                     "--host=localhost",
                     "--headless",
-                    "--logfile", f"output/logs/{test_name}.log"
+                    "--logfile", f"output/logs/{self.data_time_now}/{test_name}.log"
                 ]
                 commands.append(cmd)
 
         return commands
 
-    def log_reader(self, process: subprocess.Popen, prefix: str):
-        """Reads process logs in real-time with prefix"""
+    def log_reader(self, process: subprocess.Popen, prefix: str) -> None:
+        """Reads Process Logs In Real-Time With Prefix"""
         try:
             for line in iter(process.stdout.readline, ''):
                 if line:
@@ -55,8 +63,8 @@ class ParallelLocustRunner:
                 raise
             self.logger.exception("Unexpected Error While Reading Logs From %s: %s", prefix, e)
 
-    def run_single_test(self, cmd: List[str], index: int):
-        """Запускает один тест"""
+    def run_single_test(self, cmd: List[str], index: int) -> None:
+        """Runs One Test"""
         prefix = f"LOCUST-{index + 1:02d}"
         try:
             process = subprocess.Popen(
@@ -84,8 +92,8 @@ class ParallelLocustRunner:
         except Exception as e:
             self.logger.error("Failed To Start %s: %s", prefix, e)
 
-    def run_parallel_unlimited(self, max_workers: int = 100):
-        """Запускает ВСЕ тесты параллельно"""
+    def run_parallel_unlimited(self, max_workers: int = 100) -> None:
+        """Runs ALL Tests In Parallel"""
         commands = self.create_commands()
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -97,27 +105,24 @@ class ParallelLocustRunner:
                 future.result()
 
         self.logger.info("✅ Started %s Locust Tests In Parallel", len(commands))
-        self.logger.info("=" * 100)
 
     def monitor_status(self):
-        """Мониторинг статуса"""
+        """Status Monitoring"""
         while any(p[0].poll() is None for p in self.processes):
             with self.processes_lock:
                 running = sum(1 for p, _ in self.processes if p.poll() is None)
                 finished = len(self.processes) - running
 
-            self.logger.info("⏱️  Running: %d | Finished: %d | Total: %d",
-                             running, finished, len(self.processes))
+            self.logger.info("⏱️ Running: %d | Finished: %d | Total: %d", running, finished, len(self.processes))
             time.sleep(10)
 
     def run(self):
-        """Main runner"""
+        """Main Runner"""
         try:
             self.run_parallel_unlimited()
-
             monitor_thread = threading.Thread(
                 target=self.monitor_status,
-                name="monitor",
+                name="  Monitor ",
                 daemon=True
             )
             monitor_thread.start()
@@ -149,14 +154,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test Runner")
     parser.add_argument(
         "--TEST_PROFILE_PATH",
+        type=str,
         default="src/resources/profiles/debug_profile.json",
         help="Path to profile .json"
+    )
+    parser.add_argument(
+        "--DEBUG_ENABLE",
+        type=str,
+        default="true",
+        help="Debug Enable"
     )
     args = parser.parse_args()
 
     with open(args.TEST_PROFILE_PATH, "r", encoding="utf-8") as f:
         profile_json = json.load(f)
-
-    test_profile = TestsParam.model_validate(profile_json)
-    runner = ParallelLocustRunner(test_profile)
+    json_object = TestsParam.model_validate(profile_json)
+    date_time_now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    ProfileLogHelper.process_profiles(
+        input_data=json_object,
+        base_dir=".",
+        date_time_now=date_time_now,
+        debug_enable=args.DEBUG_ENABLE,
+        logger=setup_logger(date_time=date_time_now),
+    )
+    runner = ParallelLocustRunner(json_object, args.DEBUG_ENABLE, date_time_now)
     runner.run()

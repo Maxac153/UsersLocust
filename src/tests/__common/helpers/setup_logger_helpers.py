@@ -9,10 +9,9 @@ def setup_logger(
         name: str = "locust_runner",
         max_bytes: Optional[int] = 3_145_728,
         backup_count: int = 3,
+        date_time: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
 ) -> logging.Logger:
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_file = f"output/logs/locust_runner_{timestamp}.log"
-
+    log_file = f"output/logs/{date_time}/locust_runner.log"
     Path(log_file).parent.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
@@ -42,12 +41,11 @@ def setup_logger(
 
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
-
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
-
     logger.info(
         "Logger Initialized. File: %s (Rotation: %s Bytes, %s Backups)",
         log_file, max_bytes or "disabled", backup_count
     )
+
     return logger
