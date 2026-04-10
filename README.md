@@ -323,28 +323,34 @@ const property = PropertyHelper.readProperties(
 
 ### Запуск через CLI
 
+Команда для установки зависимостей:
+
 ```bash
 poetry install
+```
+
+Описание параметров запуска теста:
+
+```bash
+locust -f src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py --headless --DEBUG_ENABLE=<Debug true, false> --PACING=<Пейсинг> --STAGES='<Профиль нагрузки>' --PROPERTIES='<Параметры теста>'
+```
+
+Запуск теста:
+
+```bash
+locust -f src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py --headless --DEBUG_ENABLE=false --PACING=1.0 --STAGES='[{"duration":60,"users":1,"spawn_rate":1},{"duration":120,"users":2,"spawn_rate":1}]' --PROPERTIES='{"TEST_PROPERTY":"123"}'
+```
+
+Описание параметров запуска тестов:
+
+```bash
+python -m src.tests.test_runner --TEST_PROFILE_PATH=<Путь до профиля нагрузки> --DEBUG_ENABLE=<Debug true, false>
 ```
 
 Запуск тестов:
 
 ```bash
-locust -f src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py --headless --PACING=2.0 --STAGES='[{"duration":60,"users":1,"spawn_rate":1},{"duration":120,"users":2,"spawn_rate":1}]' --DEBUG_ENABLE=false --host=localhost
-```
-
-```bash
-locust -f src/tests/system_grpc/system_grpc.py --host=localhost:9090
-```
-
-Генерация классов grpc
-
-```bash
-poetry run python3 -m grpc_tools.protoc -I./proto --python_out=./pb --grpc_python_out=./pb ./proto/hello.proto
-```
-
-```bash
-locust -f test.py --host=https://example.com
+python -m src.tests.test_runner --TEST_PROFILE_PATH=src/resources/profiles/debug_profile.json --DEBUG_ENABLE=false
 ```
 
 ### Запуск тестов через Jenkins
@@ -356,7 +362,7 @@ curl -sO http://localhost:8080/jnlpJars/agent.jar
 java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name test -webSocket -workDir "/home/jenkins/agent"
 ```
 
-Ссылка на pipeline: [test_runner.groovy](jenkins/k6_run_test/test_runner.groovy)
+Ссылка на pipeline: [test_runner.groovy](jenkins/locust_run_test/test_runner.groovy)
 
 Описание параметров запуска:
 

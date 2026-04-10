@@ -9,9 +9,9 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import List
 
+from src.tests.__common.helpers.logger_helper import LoggerHelper
 from src.tests.__common.helpers.profile_helper import ProfileHelper
 from src.tests.__common.helpers.profile_log_helper import ProfileLogHelper
-from src.tests.__common.helpers.setup_logger_helpers import setup_logger
 from src.tests.__common.models.profile.tests_param import TestsParam
 
 
@@ -20,14 +20,19 @@ class ParallelLocustRunner:
             self,
             profiles: TestsParam,
             debug_enable: str,
-            data_time_now: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            date_now_str: str = datetime.now().strftime("%Y-%m-%d"),
+            data_time_now_str: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     ) -> None:
-        self.data_time_now = data_time_now
-        self.logger = setup_logger(date_time=self.data_time_now)
-        self.processes_lock = threading.Lock()
-        self.processes = []
         self.profiles = profiles
         self.debug_enable = debug_enable
+        self.date_now = date_now_str
+        self.data_time_now = data_time_now_str
+        self.logger = LoggerHelper.setup_logger(
+            date_now=date_now_str,
+            date_time_now=data_time_now_str
+        )
+        self.processes_lock = threading.Lock()
+        self.processes = []
 
     def create_commands(self) -> List[List[str]]:
         """Generates Commands For All Tests"""
@@ -44,7 +49,7 @@ class ParallelLocustRunner:
                     f"--PROPERTIES={json.dumps(test.profile.PROPERTIES)}",
                     "--host=localhost",
                     "--headless",
-                    "--logfile", f"output/logs/{self.data_time_now}/{test_name}.log"
+                    "--logfile", f"output/logs/{self.date_now}/{self.data_time_now}/{test_name}.log"
                 ]
                 commands.append(cmd)
 
@@ -92,7 +97,7 @@ class ParallelLocustRunner:
         except Exception as e:
             self.logger.error("Failed To Start %s: %s", prefix, e)
 
-    def run_parallel_unlimited(self, max_workers: int = 100) -> None:
+    def run_parallel_unlimited(self, max_workers: int = 1_000) -> None:
         """Runs ALL Tests In Parallel"""
         commands = self.create_commands()
 
@@ -149,7 +154,6 @@ class ParallelLocustRunner:
             sys.exit(0)
 
 
-# Пример использования
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test Runner")
     parser.add_argument(
@@ -168,14 +172,20 @@ if __name__ == "__main__":
 
     with open(args.TEST_PROFILE_PATH, "r", encoding="utf-8") as f:
         profile_json = json.load(f)
+
     json_object = TestsParam.model_validate(profile_json)
+    date_now = datetime.now().strftime("%Y-%m-%d")
     date_time_now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     ProfileLogHelper.process_profiles(
         input_data=json_object,
         base_dir=".",
+        date_now=date_now,
         date_time_now=date_time_now,
         debug_enable=args.DEBUG_ENABLE,
-        logger=setup_logger(date_time=date_time_now),
+        logger=LoggerHelper.setup_logger(
+            date_now=date_now,
+            date_time_now=date_time_now
+        ),
     )
-    runner = ParallelLocustRunner(json_object, args.DEBUG_ENABLE, date_time_now)
+    runner = ParallelLocustRunner(json_object, args.DEBUG_ENABLE, date_now, date_time_now)
     runner.run()

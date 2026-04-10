@@ -10,6 +10,11 @@ gevent_grpc.init_gevent()
 
 from locust import events
 
+# Генерация классов grpc
+#
+# ```bash
+# poetry run python3 -m grpc_tools.protoc -I./proto --python_out=./pb --grpc_python_out=./pb ./proto/hello.proto
+# ```
 
 class GrpcUser(User):
     wait_time = between(1, 3)

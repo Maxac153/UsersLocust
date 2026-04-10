@@ -14,7 +14,7 @@
             "PACING": 10,
             "STEPS": [
               {
-                "TPS": 0.1,
+                "TPS": 0.5,
                 "RAMP_TIME": 1,
                 "HOLD_TIME": 3
               },

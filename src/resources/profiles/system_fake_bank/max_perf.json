@@ -1,16 +1,16 @@
 {
   "elements": {
-    "t1_authorization": {
+    "t1_get_accounts": {
       "x": 300,
       "y": 160,
       "profile": {
         "RUN": {
           "ENV": "input/env/redis/redis.json",
           "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t1_authorization/authorization_test.js"
+          "TEST_PATH": "src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py"
         },
         "PROFILE": {
-          "AUTHORIZATION_ADMIN_SCENARIO": {
+          "GET_ACCOUNTS_SCENARIO": {
             "PACING": 10,
             "STEPS": [
               {
@@ -24,41 +24,21 @@
                 "HOLD_TIME": 3
               }
             ]
-          },
-          "AUTHORIZATION_USERS_SCENARIO": {
-            "PACING": 10,
-            "STEPS": [
-              {
-                "TPS": 0.1,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              },
-              {
-                "TPS": 0.0,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              },
-              {
-                "TPS": 0.1,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              }
-            ]
           }
         },
         "PROPERTIES": {
-          "REDIS_KEY_ADD": "users_t1_authorization"
+          "REDIS_KEY_ADD": "users_t1_get_accounts"
         }
       }
     },
-    "t2_registration": {
+    "t2_kafka": {
       "x": 400,
       "y": 280,
       "profile": {
         "RUN": {
           "ENV": "input/env/redis/redis.json",
           "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t2_registration/registration_test.js"
+          "TEST_PATH": "src/tests/system_fake_bank/t2_kafka/kafka_scenario.py"
         },
         "PROFILE": {
           "REGISTRATION_SCENARIO": {
@@ -68,46 +48,25 @@
                 "TPS": 0.5,
                 "RAMP_TIME": 1,
                 "HOLD_TIME": 5
-              }
-            ]
-          }
-        },
-        "PROPERTIES": {
-          "REDIS_KEY_READ": "users_t2_registration"
-        }
-      }
-    },
-    "t3_upload_avatar": {
-      "x": 400,
-      "y": 280,
-      "profile": {
-        "RUN": {
-          "ENV": "input/env/redis/redis.json",
-          "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t3_upload_avatar/upload_avatar_test.js"
-        },
-        "PROFILE": {
-          "UPLOAD_AVATAR_SCENARIO": {
-            "PACING": 3,
-            "STEPS": [
+              },
               {
-                "TPS": 0.01,
+                "TPS": 1.0,
                 "RAMP_TIME": 1,
-                "HOLD_TIME": 10
+                "HOLD_TIME": 5
               }
             ]
           }
         },
         "PROPERTIES": {
-          "REDIS_KEY_READ": "users_t3_upload_avatar"
+          "REDIS_KEY_READ": "users_t1_get_accounts"
         }
       }
     }
   },
   "connections": [
     {
-      "from": "t1_authorization",
-      "to": "t2_authorization",
+      "from": "users_t1_get_accounts",
+      "to": "t2_kafka",
       "type": "->",
       "direction": "uni"
     }
@@ -123,12 +82,12 @@
       "DATASOURCE_URL": "http://localhost:8086/k6",
       "METRICS_BACKEND": "influxdb",
       "PROFILE_NAME": "debug_profile",
-      "SYSTEM_NAME": "users",
+      "SYSTEM_NAME": "fake_bank",
       "PERCENT_PROFILE": 1.0,
-      "LOG_LEVEL": "error"
+      "LOG_LEVEL": "info"
     },
     "PROPERTIES": {
-      "DEBUG_ENABLE": "false"
+      "DEBUG_ENABLE": "true"
     }
   }
 }

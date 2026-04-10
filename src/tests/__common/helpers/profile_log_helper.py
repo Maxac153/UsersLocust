@@ -52,15 +52,15 @@ class ProfileLogHelper:
         return total
 
     @staticmethod
-    def create_logs_dir(base_dir: str, profile_name: str, date_time_now: str) -> str:
-        logs_dir = os.path.join(base_dir, "output", "logs", date_time_now, profile_name)
+    def create_logs_dir(base_dir: str, profile_name: str, date_now: str, date_time_now: str) -> str:
+        logs_dir = os.path.join(base_dir, "output", "logs", date_now, date_time_now, profile_name)
         os.makedirs(logs_dir, exist_ok=True)
         return logs_dir
 
     @classmethod
     def build_profile_info(
             cls,
-            scenario: Scenario,  # изменил: Profile → Scenario
+            scenario: Scenario,
             start_date: datetime,
             end_date: datetime,
     ) -> Dict[str, Any]:
@@ -68,7 +68,7 @@ class ProfileLogHelper:
         step_intervals: Dict[str, str] = {}
         step_start = start_date
 
-        pacing = scenario.PACING  # из одного сценария
+        pacing = scenario.PACING
 
         for i, step in enumerate(scenario.STEPS):
             ramp_time = float(getattr(step, "RAMP_TIME", 0))
@@ -90,7 +90,6 @@ class ProfileLogHelper:
 
             step_start = step_end
 
-        # первый шаг в сценарии
         first_step = scenario.STEPS[0] if scenario.STEPS else None
         first_ramp_minutes = float(getattr(first_step, "RAMP_TIME", 0)) if first_step else 0
         ramp_up_end_time = start_date + timedelta(minutes=first_ramp_minutes)
@@ -174,7 +173,6 @@ class ProfileLogHelper:
             "steps": profile_info["stepIntervals"],
         }
 
-        # dump напрямую в Path
         json_path.write_text(
             json.dumps(json_data, indent=2, ensure_ascii=False),
             encoding="utf-8",
@@ -186,7 +184,7 @@ class ProfileLogHelper:
         scenarios: List[Dict[str, Any]] = []
 
         for element_name, element in elements.items():
-            profile_root = element.profile.PROFILE  # Dict[str, Scenario]
+            profile_root = element.profile.PROFILE
             for scenario_name, scenario in profile_root.items():
                 if scenario.STEPS:
                     scenarios.append(
@@ -203,23 +201,24 @@ class ProfileLogHelper:
             cls,
             input_data: TestsParam,
             base_dir: str = ".",
+            date_now: str = datetime.now().strftime("%Y-%m-%d"),
             date_time_now: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
             logger: Logger = None,
             debug_enable: str = "true",
     ) -> None:
         run_settings = input_data.COMMON_SETTINGS.RUN_SETTINGS
         if debug_enable == "true":
-            logger.info("DEBUG_ENABLE = true: skipping profile logging")
+            logger.info("DEBUG_ENABLE = true: Skipping Profile Logging")
             return
 
         profile_name = run_settings.PROFILE_NAME
-        logs_dir = cls.create_logs_dir(base_dir, profile_name, date_time_now)
+        logs_dir = cls.create_logs_dir(base_dir, profile_name, date_now, date_time_now)
 
         scenarios = cls.get_scenario_entries(input_data)
         logger.info(f"📊 Found {len(scenarios)} Scenarios Across All Elements")
 
         if not scenarios:
-            logger.info("No scenarios found, skipping profile processing")
+            logger.info("No Scenarios Found, Skipping Profile Processing")
             return
 
         longest_scenario = None
@@ -240,7 +239,6 @@ class ProfileLogHelper:
             start_date = datetime.now()
             end_date = start_date + timedelta(seconds=longest_duration)
 
-            # собираем info ПО СЦЕНАРИЮ, а не по Profile
             profile_info = cls.build_profile_info(
                 longest_scenario["scenario"],
                 start_date,

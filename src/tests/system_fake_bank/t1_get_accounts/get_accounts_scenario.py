@@ -2,9 +2,10 @@ import json
 
 from locust import task, HttpUser, LoadTestShape, constant_pacing
 
-import src.tests.__common.helpers.add_arguments_helpers  # noqa: F401
-from src.tests.__common.clients.httpx_client import get_locust_http_client
-from src.tests.__common.decorators.transaction import transaction
+import src.tests.__common.helpers.add_arguments_helper  # noqa: F401
+import src.tests.__common.hooks.prometheus_hooks  # noqa F401
+from src.tests.__common.clients.httpx_client import HttpClient
+from src.tests.__common.decorators.transaction import Transaction
 from src.tests.__common.helpers.property_helper import PropertyHelper
 from src.tests.__common.models.stage.stages_config import StagesConfig
 
@@ -36,18 +37,18 @@ class GetAccounts(HttpUser):
         self.fake_bank_host = self.properties.get("FAKE_BANK_HOST")
 
     def on_start(self) -> None:
-        self.httpx_client = get_locust_http_client(
+        self.httpx_client = HttpClient(
             timeout=10.0,
             client_url=self.fake_bank_host,
             environment=self.environment,
         )
 
     @task
-    @transaction("uc_fake_bank_1_rest_get_accounts")
+    @Transaction("uc_fake_bank_1_rest_get_accounts")
     def get_accounts_scenario(self) -> None:
         self.httpx_client.get(
             "/fakebank/accounts",
-            extensions={"request_name": "uc_fake_bank_1_rest_get_/fakebank/accounts"},
+            extensions={"request_name": "ur_fake_bank_1_rest_get_/fakebank/accounts"},
         )
 
         if self.debug_enable:

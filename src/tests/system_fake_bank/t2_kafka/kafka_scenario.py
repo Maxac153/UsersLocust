@@ -2,8 +2,9 @@ import json
 
 from locust import task, HttpUser, LoadTestShape, events, constant_pacing
 
-import src.tests.__common.helpers.add_arguments_helpers  # noqa: F401
-from src.tests.__common.decorators.transaction import transaction
+import src.tests.__common.helpers.add_arguments_helper  # noqa: F401
+import src.tests.__common.hooks.prometheus_hooks  # noqa F401
+from src.tests.__common.decorators.transaction import Transaction
 from src.tests.__common.helpers.property_helper import PropertyHelper
 from src.tests.__common.models.stage.stages_config import StagesConfig
 
@@ -32,7 +33,7 @@ class KafkaSend(HttpUser):
         pass
 
     @task
-    @transaction("uc_fake_bank_1_kafka_send")
+    @Transaction("uc_fake_bank_1_kafka_send")
     def kafka_scenario(self) -> Exception | None:
         events.request.fire(
             request_type="KAFKA",

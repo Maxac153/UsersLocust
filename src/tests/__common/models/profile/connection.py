@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field
 
 
 class Connection(BaseModel):
@@ -6,8 +6,3 @@ class Connection(BaseModel):
     to: str
     type: str
     direction: str
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        validate_by_name=True
-    )
