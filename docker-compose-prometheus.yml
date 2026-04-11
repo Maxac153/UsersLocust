@@ -25,7 +25,6 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=monitoring/grafana/prometheus/locust_prometheus.json
     volumes:
       - grafana_data:/var/lib/grafana
     networks:

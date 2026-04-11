@@ -4,6 +4,7 @@ from locust import task, HttpUser, LoadTestShape, constant_pacing
 
 import src.tests.__common.helpers.add_arguments_helper  # noqa: F401
 import src.tests.__common.hooks.prometheus_hooks  # noqa F401
+# import src.tests.__common.hooks.influxdb2_hooks  # noqa F401
 from src.tests.__common.clients.httpx_client import HttpClient
 from src.tests.__common.decorators.transaction import Transaction
 from src.tests.__common.helpers.property_helper import PropertyHelper
@@ -20,7 +21,6 @@ class GetAccounts(HttpUser):
         super().__init__(*args, **kwargs)
         options = self.environment.parsed_options
         self.debug_enable = getattr(options, "DEBUG_ENABLE", True).strip().lower() == "true"
-        print(self.debug_enable)
         self.__class__.wait_time = constant_pacing(getattr(options, "PACING", 1.0))
         stages_str = getattr(options, "STAGES", None)
         if stages_str is not None:
@@ -48,7 +48,7 @@ class GetAccounts(HttpUser):
     def get_accounts_scenario(self) -> None:
         self.httpx_client.get(
             "/fakebank/accounts",
-            extensions={"request_name": "ur_fake_bank_1_rest_get_/fakebank/accounts"},
+            extensions={"request_name": "ur_fake_bank_1.1_rest_get_/fakebank/accounts"},
         )
 
         if self.debug_enable:

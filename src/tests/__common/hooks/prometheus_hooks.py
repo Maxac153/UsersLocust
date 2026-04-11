@@ -11,12 +11,11 @@ class PrometheusServerManager:
     _lock = threading.Lock()
 
     @classmethod
-    def start(cls, port: int = PROMETHEUS_PORT):
+    def start(cls, port: int = PROMETHEUS_PORT) -> None:
         with cls._lock:
             if cls._started:
                 print("⚠️ Prometheus сервер уже запущен")
                 return
-
             try:
                 start_http_server(port)
                 cls._started = True
@@ -42,7 +41,7 @@ class PrometheusMetricsSender:
     )
 
     @staticmethod
-    def _get_status_code(response, context):
+    def _get_status_code(response, context) -> str:
         if response and hasattr(response, "status_code"):
             return str(response.status_code)
         elif context and hasattr(context, "status_code"):
@@ -52,8 +51,16 @@ class PrometheusMetricsSender:
         return "0"
 
     @classmethod
-    def on_request(cls, request_type, name, response_time, response_length,
-                   response=None, context=None, **kwargs):
+    def on_request(
+            cls,
+            request_type,
+            name,
+            response_time,
+            response_length,
+            response=None,
+            context=None,
+            **kwargs
+    ) -> None:
         status_code = cls._get_status_code(response, context)
 
         cls.REQUEST_COUNT.labels(
@@ -69,14 +76,20 @@ class PrometheusMetricsSender:
 
 
 @events.init.add_listener
-def on_locust_init(environment, **kwargs):
+def on_locust_init(environment, **kwargs) -> None:
     PrometheusServerManager.start()
-    print("✅ Locust init: метрики готовы")
 
 
 @events.request.add_listener
-def on_request(request_type, name, response_time, response_length,
-               response=None, context=None, **kwargs):
+def on_request(
+        request_type,
+        name,
+        response_time,
+        response_length,
+        response=None,
+        context=None,
+        **kwargs
+):
     PrometheusMetricsSender.on_request(
         request_type=request_type,
         name=name,

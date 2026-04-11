@@ -1,61 +1,67 @@
+import json
+
 from locust import task, constant_pacing, HttpUser, LoadTestShape
 
-from src.tests.__common.decorators.transaction import transaction
-from src.tests.__common.helpers.logger_helper import LogConfig
+from src.tests.__common.clients.httpx_client import HttpClient
+from src.tests.__common.decorators.transaction import Transaction
+from src.tests.__common.helpers.property_helper import PropertyHelper
+from src.tests.__common.models.stage.stages_config import StagesConfig
 
+STAGES = [{"duration": 60, "users": 1, "spawn_rate": 1}]
 
 class Accounts(HttpUser):
-    host = "https://reqres.in"
-    wait_time = constant_pacing(2)
+    host = "localhost"
+    httpx_client = None
 
-    def __init__(self, environment) -> None:
-        super().__init__(environment)
-        self.profile = None
-        self.properties = None
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        options = self.environment.parsed_options
+        self.debug_enable = getattr(options, "DEBUG_ENABLE", True).strip().lower() == "true"
+        self.__class__.wait_time = constant_pacing(getattr(options, "PACING", 1.0))
+        stages_str = getattr(options, "STAGES", None)
+        if stages_str is not None:
+            StagesConfig.model_validate_json(stages_str)
+            global STAGES
+            STAGES = json.loads(stages_str)
+        self.properties = PropertyHelper.read_properties(
+            getattr(options, "PROPERTIES", None),
+            "src/resources/properties/__common/common_properties.json",
+            "src/resources/properties/tests/system_fake_bank/fake_bank.json",
+            "src/resources/properties/tests/system_fake_bank/__groups/fake_bank_host.json",
+            "src/resources/properties/tests/system_fake_bank/t1_get_accounts/get_accounts_properties.json"
+        )
+        self.fake_bank_host = self.properties.get("FAKE_BANK_HOST")
 
     def on_start(self) -> None:
-        pass
-        # self.properties = PropertyHelper.read_properties(
-        #     None,
-        #     "src/resources/__common/common_properties.json",
-        #     "src/resources/tests/system_reqres/system_fake_bank.json",
-        #     "src/resources/tests/system_reqres/__groups/reqres_host.json",
-        #     "src/resources/tests/system_reqres/t1_create_users/create_users_properties.json"
-        # )
-        # self.profile = {}
-        # self.wait_time = constant_pacing(self.profile.get("PACING"))
-        # self.host = self.properties.get("PORT") + "://" + self.properties.get("HOST")
+        self.httpx_client = HttpClient(
+            timeout=10.0,
+            client_url=self.fake_bank_host,
+            environment=self.environment,
+        )
 
     @task
-    @transaction("uc_reqres_1_create_users")
-    def create_users(self) -> Exception | None:
-        with self.client.post(
-                catch_response=True,
-                name="ur_reqres_1_rest_post_create_users",
-                url="/api/users",
-                json={
-                    "name": "morpheus",
-                    "job": "leader"
-                }
-        ) as request:
-            LogConfig.logger.debug(request.status_code)
-            if not (200 <= request.status_code <= 299):
-                return Exception("Transaction Error")
+    @Transaction("uc_reqres_1_create_users")
+    def get_accounts_scenario(self) -> None:
+        self.httpx_client.post(
+            "/api/users",
+            json={
+                "name": "morpheus",
+                "job": "leader"
+            },
+            extensions={"request_name": "ur_reqres_1_rest_post_create_users_/api/users"},
+        )
+
+        if self.debug_enable:
+            self.environment.runner.quit()
 
     def on_stop(self) -> None:
-        pass
+        self.httpx_client.close()
 
 
 class StagesShape(LoadTestShape):
-    stages = [
-        {"duration": 10, "users": 1, "spawn_rate": 1},
-        {"duration": 20, "users": 2, "spawn_rate": 1}
-    ]
-
-    def tick(self):
+    def tick(self) -> tuple[int, int] | None:
         run_time = self.get_run_time()
-        for stage in self.stages:
+        for stage in STAGES:
             if run_time < stage["duration"]:
-                tick_data = (stage["users"], stage["spawn_rate"])
-                return tick_data
+                return stage["users"], stage["spawn_rate"]
         return None

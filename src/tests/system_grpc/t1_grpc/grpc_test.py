@@ -1,14 +1,15 @@
 import time
-from locust import User, task, between
+
 import grpc
 import grpc.experimental.gevent as gevent_grpc
+from locust import User, task, between
 
 from src.tests.system_grpc.proto import hello_pb2_grpc, hello_pb2
 
 gevent_grpc.init_gevent()
 
-
 from locust import events
+
 
 # Генерация классов grpc
 #
@@ -38,8 +39,6 @@ class GrpcUser(User):
                 exception=None
             )
 
-            print(f"✅ massage: {response.message} age: {response.age}")
-
         except Exception as e:
             events.request.fire(
                 request_type="system_grpc",
@@ -47,7 +46,6 @@ class GrpcUser(User):
                 response_time=(time.time() - start_time) * 1000,
                 response_length=0, exception=e
             )
-            print(f"❌ {e}")
 
     def on_stop(self):
         self.channel.close()

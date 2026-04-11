@@ -18,14 +18,15 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 2,
   "links": [],
   "panels": [
     {
       "datasource": {
-        "type": "prometheus",
+        "type": "influxdb",
         "uid": "${datasource}"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -70,10 +71,6 @@
             "steps": [
               {
                 "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
@@ -82,16 +79,20 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 11,
-        "w": 21,
+        "h": 12,
+        "w": 16,
         "x": 0,
         "y": 0
       },
-      "id": 5,
+      "id": 15,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -105,50 +106,145 @@
       "targets": [
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
-          "editorMode": "code",
-          "expr": "sum(rate(locust_requests_total[1m]))",
           "hide": false,
-          "instant": false,
-          "legendFormat": "RPS Total",
-          "range": true,
+          "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n      r[\"_measurement\"] == \"locust_requests\" and\n      r[\"_field\"] == \"status_code\" and\n      r.name =~ /^ur/\n  )\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(every: 30s, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: float(v: r._value) / 30.0 }))\n  |> yield(name: \"rps_30s\")",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(locust_requests_total{status=~\"4..|5..\"}[1m]))",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "RPS KO",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(locust_requests_total{status!~\"4..|5..\"}[1m]))",
-          "legendFormat": "RPS OK",
-          "range": true,
-          "refId": "C"
         }
       ],
       "title": "RPS Total",
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "RPS Total",
+            "mode": "reduceRow",
+            "reduce": {
+              "reducer": "sum"
+            },
+            "replaceFields": true
+          }
+        }
+      ],
       "type": "timeseries"
     },
     {
       "datasource": {
-        "type": "prometheus",
+        "type": "influxdb",
         "uid": "${datasource}"
       },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 16,
+        "y": 0
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": [
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "hide": false,
+          "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n      r[\"_measurement\"] == \"locust_requests\" and\n      r[\"_field\"] == \"status_code\" and\n      r.name =~ /^ur/ and\n      r._value < 400\n  )\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(every: 30s, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: float(v: r._value) / 30.0 }))\n  |> yield(name: \"rps_30s\")",
+          "refId": "A"
+        }
+      ],
+      "title": "RPS Total OK",
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "RPS Total OK",
+            "mode": "reduceRow",
+            "reduce": {
+              "reducer": "sum"
+            },
+            "replaceFields": true
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -168,12 +264,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 3,
         "x": 21,
         "y": 0
       },
-      "id": 7,
+      "id": 18,
       "options": {
         "minVizHeight": 75,
         "minVizWidth": 75,
@@ -193,13 +289,11 @@
       "targets": [
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
-          "editorMode": "code",
-          "expr": "sum(rate(locust_requests_total{status!~\"4..|5..\"}[1m])) / sum(rate(locust_requests_total[1m]))",
-          "legendFormat": "__auto",
-          "range": true,
+          "hide": false,
+          "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n    r._measurement == \"locust_requests\" and\n    r._field == \"status_code\" and\n    r.name =~ /^ur/\n  )\n  |> group()\n  |> reduce(\n    identity: {all: 0, success: 0},\n    fn: (r, accumulator) => ({\n      all: accumulator.all + 1,\n      success: accumulator.success + (if r._value < 400 then 1 else 0)\n    })\n  )\n  |> map(fn: (r) => ({\n    _time: now(),\n    _measurement: \"locust_requests\",\n    _field: \"success_rate\",\n    _value: if r.all == 0 then 0.0 else float(v: r.success) / float(v: r.all)\n  }))",
           "refId": "A"
         }
       ],
@@ -208,9 +302,119 @@
     },
     {
       "datasource": {
-        "type": "prometheus",
+        "type": "influxdb",
         "uid": "${datasource}"
       },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 16,
+        "y": 6
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": [
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "hide": false,
+          "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n      r[\"_measurement\"] == \"locust_requests\" and\n      r[\"_field\"] == \"status_code\" and\n      r.name =~ /^ur/ and\n      r._value >= 400\n  )\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(every: 30s, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: float(v: r._value) / 30.0 }))\n  |> yield(name: \"rps_30s\")",
+          "refId": "A"
+        }
+      ],
+      "title": "RPS Total KO",
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "RPS Total",
+            "mode": "reduceRow",
+            "reduce": {
+              "reducer": "sum"
+            },
+            "replaceFields": true
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -233,9 +437,9 @@
         "h": 6,
         "w": 3,
         "x": 21,
-        "y": 5
+        "y": 6
       },
-      "id": 6,
+      "id": 19,
       "options": {
         "minVizHeight": 75,
         "minVizWidth": 75,
@@ -255,13 +459,11 @@
       "targets": [
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
-          "editorMode": "code",
-          "expr": "sum(rate(locust_requests_total{status=~\"4..|5..\"}[1m])) / sum(rate(locust_requests_total[1m]))",
-          "legendFormat": "__auto",
-          "range": true,
+          "hide": false,
+          "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n    r._measurement == \"locust_requests\" and\n    r._field == \"status_code\" and\n    r.name =~ /^ur/\n  )\n  |> group()\n  |> reduce(\n    identity: {all: 0, success: 0},\n    fn: (r, accumulator) => ({\n      all: accumulator.all + 1,\n      success: accumulator.success + (if r._value >= 400 then 1 else 0)\n    })\n  )\n  |> map(fn: (r) => ({\n    _time: now(),\n    _measurement: \"locust_requests\",\n    _field: \"success_rate\",\n    _value: if r.all == 0 then 0.0 else float(v: r.success) / float(v: r.all)\n  }))",
           "refId": "A"
         }
       ],
@@ -274,14 +476,14 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 12
       },
-      "id": 22,
+      "id": 24,
       "panels": [
         {
           "datasource": {
-            "type": "prometheus",
-            "uid": "efin9a52cpp8gf"
+            "type": "influxdb",
+            "uid": "${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -309,66 +511,38 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Error"
+                  "options": "transaction"
+                },
+                "properties": []
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "success_count"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 300
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Rrror Percent"
+                  "options": "error_count"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 300
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Success"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 200
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Total"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 200
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Endpoint"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Error Percent"
+                  "options": "error_percent"
                 },
                 "properties": [
                   {
@@ -387,9 +561,9 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 12
+            "y": 13
           },
-          "id": 23,
+          "id": 25,
           "options": {
             "cellHeight": "sm",
             "footer": {
@@ -400,134 +574,36 @@
               ],
               "show": false
             },
-            "frameIndex": 0,
             "showHeader": true,
             "sortBy": []
           },
           "pluginVersion": "12.0.2",
           "targets": [
             {
-              "editorMode": "code",
-              "expr": "sum(locust_requests_total{endpoint=~\"uc.*\"}) by (endpoint)",
-              "format": "table",
-              "legendFormat": "__auto",
-              "range": true,
+              "datasource": {
+                "type": "influxdb",
+                "uid": "${datasource}"
+              },
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n    r._measurement == \"locust_requests\" and\n    r._field == \"status_code\" and\n    r.name =~ /^uc/\n  )\n  |> group(columns: [\"name\"])\n  |> reduce(\n    identity: {all: 0, err: 0},\n    fn: (r, accumulator) => ({\n      all: accumulator.all + 1,\n      err: accumulator.err + (if r._value >= 400 then 1 else 0)\n    })\n  )\n  |> map(fn: (r) => ({\n    transaction: r.name,\n    success_count: r.all - r.err,\n    error_count: r.err,\n    error_percent: if r.all == 0 then 0.0 else float(v: r.err) / float(v: r.all)\n  }))\n  |> keep(columns: [\"transaction\", \"success_count\", \"error_count\", \"error_percent\"])\n  |> yield(name: \"requests_summary\")",
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "efin9a52cpp8gf"
-              },
-              "editorMode": "code",
-              "expr": "sum(locust_requests_total{endpoint=~\"uc.*\", status!~\"4..|5..\"}) by (endpoint)",
-              "format": "table",
-              "hide": false,
-              "instant": false,
-              "interval": "",
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "efin9a52cpp8gf"
-              },
-              "editorMode": "code",
-              "expr": "sum(locust_requests_total{endpoint=~\"uc.*\", status=~\"4..|5..\"}) by (endpoint)",
-              "format": "table",
-              "hide": false,
-              "instant": false,
-              "interval": "",
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "C"
             }
           ],
           "title": "Summary UC",
           "transformations": [
             {
-              "id": "merge",
-              "options": {}
-            },
-            {
-              "id": "groupBy",
-              "options": {
-                "fields": {
-                  "Value #A": {
-                    "aggregations": [
-                      "sum"
-                    ],
-                    "operation": "aggregate"
-                  },
-                  "Value #B": {
-                    "aggregations": [
-                      "sum"
-                    ],
-                    "operation": "aggregate"
-                  },
-                  "Value #C": {
-                    "aggregations": [
-                      "sum"
-                    ],
-                    "operation": "aggregate"
-                  },
-                  "endpoint": {
-                    "aggregations": [],
-                    "operation": "groupby"
-                  },
-                  "success_count": {
-                    "aggregations": [
-                      "sum"
-                    ]
-                  }
-                }
-              }
-            },
-            {
               "id": "organize",
               "options": {
-                "excludeByName": {
-                  "Time": true
-                },
+                "excludeByName": {},
                 "includeByName": {},
-                "indexByName": {},
+                "indexByName": {
+                  "error_count": 2,
+                  "error_percent": 3,
+                  "success_count": 1,
+                  "transaction": 0
+                },
                 "renameByName": {
-                  "Value #A": "Total",
-                  "Value #A (sum)": "Total",
-                  "Value #B": "Success",
-                  "Value #B (sum)": "Success",
-                  "Value #C": "Error",
-                  "Value #C (sum)": "Error",
-                  "endpoint": "Endpoint"
+                  "error_percent": ""
                 }
-              }
-            },
-            {
-              "id": "calculateField",
-              "options": {
-                "alias": "Error Percent",
-                "binary": {
-                  "left": {
-                    "matcher": {
-                      "id": "byName",
-                      "options": "Error"
-                    }
-                  },
-                  "operator": "/",
-                  "right": {
-                    "matcher": {
-                      "id": "byName",
-                      "options": "Total"
-                    }
-                  }
-                },
-                "mode": "binary",
-                "reduce": {
-                  "reducer": "sum"
-                },
-                "replaceFields": false
               }
             }
           ],
@@ -543,13 +619,13 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 12
+        "y": 13
       },
-      "id": 3,
+      "id": 8,
       "panels": [
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -596,10 +672,6 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
@@ -608,15 +680,19 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 0,
-            "y": 29
+            "y": 14
           },
           "id": 1,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -631,13 +707,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "rate(locust_requests_total{endpoint=~\"uc.*\", status!~\"4..|5..\"}[1m])",
-              "legendFormat": "{{endpoint}}",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n      r[\"_measurement\"] == \"locust_requests\" and\n      r[\"_field\"] == \"status_code\" and\n      r.name =~ /^uc/ and\n      r._value < 400\n  )\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(every: 30s, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: float(v: r._value) / 30.0 }))\n  |> yield(name: \"rps_30s\")",
               "refId": "A"
             }
           ],
@@ -646,7 +720,7 @@
         },
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -693,10 +767,6 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
@@ -705,15 +775,19 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 12,
-            "y": 29
+            "y": 14
           },
-          "id": 2,
+          "id": 16,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -728,13 +802,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "rate(locust_requests_total{endpoint=~\"uc.*\", status=~\"4..|5..\"}[1m])",
-              "legendFormat": "{{endpoint}}",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n      r[\"_measurement\"] == \"locust_requests\" and\n      r[\"_field\"] == \"status_code\" and\n      r.name =~ /^uc/ and\n      r._value >= 400\n  )\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(every: 30s, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: float(v: r._value) / 30.0 }))\n  |> yield(name: \"rps_30s\")",
               "refId": "A"
             }
           ],
@@ -751,13 +823,13 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 13
+        "y": 14
       },
-      "id": 4,
+      "id": 7,
       "panels": [
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -804,27 +876,27 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
-              "unit": "s"
+              "unit": "ms"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 0,
-            "y": 30
+            "y": 15
           },
-          "id": 8,
+          "id": 3,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -839,13 +911,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "histogram_quantile(0.99, sum(rate(locust_request_duration_seconds_bucket{endpoint=~\"uc.*\"}[1m])) by (le, endpoint))",
-              "legendFormat": "__auto",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"locust_requests\" and r[\"_field\"] == \"response_time_ms\" and r.name =~ /^uc/)\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(\n      every: 30s,\n      fn: (tables=<-, column) => tables |> quantile(q: 0.99, method: \"estimate_tdigest\"),\n      createEmpty: false\n  )\n  |> yield(name: \"p99_30s\")",
               "refId": "A"
             }
           ],
@@ -854,7 +924,7 @@
         },
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -901,27 +971,27 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
-              "unit": "s"
+              "unit": "ms"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 12,
-            "y": 30
+            "y": 15
           },
           "id": 9,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -936,13 +1006,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "histogram_quantile(0.95, sum(rate(locust_request_duration_seconds_bucket{endpoint=~\"uc.*\"}[1m])) by (le, endpoint))",
-              "legendFormat": "__auto",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"locust_requests\" and r[\"_field\"] == \"response_time_ms\" and r.name =~ /^uc/)\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(\n      every: 30s,\n      fn: (tables=<-, column) => tables |> quantile(q: 0.95, method: \"estimate_tdigest\"),\n      createEmpty: false\n  )\n  |> yield(name: \"p95_30s\")",
               "refId": "A"
             }
           ],
@@ -951,7 +1019,7 @@
         },
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -998,27 +1066,27 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
-              "unit": "s"
+              "unit": "ms"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 0,
-            "y": 39
+            "y": 51
           },
-          "id": 11,
+          "id": 10,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -1033,13 +1101,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "histogram_quantile(0.75, sum(rate(locust_request_duration_seconds_bucket{endpoint=~\"uc.*\"}[1m])) by (le, endpoint))",
-              "legendFormat": "__auto",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"locust_requests\" and r[\"_field\"] == \"response_time_ms\" and r.name =~ /^uc/)\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(\n      every: 30s,\n      fn: (tables=<-, column) => tables |> quantile(q: 0.75, method: \"estimate_tdigest\"),\n      createEmpty: false\n  )\n  |> yield(name: \"p75_30s\")",
               "refId": "A"
             }
           ],
@@ -1048,7 +1114,7 @@
         },
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -1095,27 +1161,27 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
-              "unit": "s"
+              "unit": "ms"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 12,
-            "y": 39
+            "y": 51
           },
-          "id": 10,
+          "id": 11,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -1130,13 +1196,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "histogram_quantile(0.50, sum(rate(locust_request_duration_seconds_bucket{endpoint=~\"uc.*\"}[1m])) by (le, endpoint))",
-              "legendFormat": "__auto",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"locust_requests\" and r[\"_field\"] == \"response_time_ms\" and r.name =~ /^uc/)\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(\n      every: 30s,\n      fn: (tables=<-, column) => tables |> quantile(q: 0.50, method: \"estimate_tdigest\"),\n      createEmpty: false\n  )\n  |> yield(name: \"p50_30s\")",
               "refId": "A"
             }
           ],
@@ -1153,14 +1217,14 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 15
       },
       "id": 20,
       "panels": [
         {
           "datasource": {
-            "type": "prometheus",
-            "uid": "efin9a52cpp8gf"
+            "type": "influxdb",
+            "uid": "${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1188,66 +1252,38 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Error"
+                  "options": "transaction"
+                },
+                "properties": []
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "success_count"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 300
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Rrror Percent"
+                  "options": "error_count"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 300
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Success"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 200
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Total"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 200
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Endpoint"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Error Percent"
+                  "options": "error_percent"
                 },
                 "properties": [
                   {
@@ -1266,7 +1302,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 15
+            "y": 120
           },
           "id": 21,
           "options": {
@@ -1279,134 +1315,36 @@
               ],
               "show": false
             },
-            "frameIndex": 0,
             "showHeader": true,
             "sortBy": []
           },
           "pluginVersion": "12.0.2",
           "targets": [
             {
-              "editorMode": "code",
-              "expr": "sum(locust_requests_total{endpoint=~\"ur.*\"}) by (endpoint)",
-              "format": "table",
-              "legendFormat": "__auto",
-              "range": true,
+              "datasource": {
+                "type": "influxdb",
+                "uid": "${datasource}"
+              },
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n    r._measurement == \"locust_requests\" and\n    r._field == \"status_code\" and\n    r.name =~ /^ur/\n  )\n  |> group(columns: [\"name\"])\n  |> reduce(\n    identity: {all: 0, err: 0},\n    fn: (r, accumulator) => ({\n      all: accumulator.all + 1,\n      err: accumulator.err + (if r._value >= 400 then 1 else 0)\n    })\n  )\n  |> map(fn: (r) => ({\n    transaction: r.name,\n    success_count: r.all - r.err,\n    error_count: r.err,\n    error_percent: if r.all == 0 then 0.0 else float(v: r.err) / float(v: r.all)\n  }))\n  |> keep(columns: [\"transaction\", \"success_count\", \"error_count\", \"error_percent\"])\n  |> yield(name: \"requests_summary\")",
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "efin9a52cpp8gf"
-              },
-              "editorMode": "code",
-              "expr": "sum(locust_requests_total{endpoint=~\"ur.*\", status!~\"4..|5..\"}) by (endpoint)",
-              "format": "table",
-              "hide": false,
-              "instant": false,
-              "interval": "",
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "efin9a52cpp8gf"
-              },
-              "editorMode": "code",
-              "expr": "sum(locust_requests_total{endpoint=~\"ur.*\", status=~\"4..|5..\"}) by (endpoint)",
-              "format": "table",
-              "hide": false,
-              "instant": false,
-              "interval": "",
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "C"
             }
           ],
           "title": "Summary UR",
           "transformations": [
             {
-              "id": "merge",
-              "options": {}
-            },
-            {
-              "id": "groupBy",
-              "options": {
-                "fields": {
-                  "Value #A": {
-                    "aggregations": [
-                      "sum"
-                    ],
-                    "operation": "aggregate"
-                  },
-                  "Value #B": {
-                    "aggregations": [
-                      "sum"
-                    ],
-                    "operation": "aggregate"
-                  },
-                  "Value #C": {
-                    "aggregations": [
-                      "sum"
-                    ],
-                    "operation": "aggregate"
-                  },
-                  "endpoint": {
-                    "aggregations": [],
-                    "operation": "groupby"
-                  },
-                  "success_count": {
-                    "aggregations": [
-                      "sum"
-                    ]
-                  }
-                }
-              }
-            },
-            {
               "id": "organize",
               "options": {
-                "excludeByName": {
-                  "Time": true
-                },
+                "excludeByName": {},
                 "includeByName": {},
-                "indexByName": {},
+                "indexByName": {
+                  "error_count": 2,
+                  "error_percent": 3,
+                  "success_count": 1,
+                  "transaction": 0
+                },
                 "renameByName": {
-                  "Value #A": "Total",
-                  "Value #A (sum)": "Total",
-                  "Value #B": "Success",
-                  "Value #B (sum)": "Success",
-                  "Value #C": "Error",
-                  "Value #C (sum)": "Error",
-                  "endpoint": "Endpoint"
+                  "error_percent": ""
                 }
-              }
-            },
-            {
-              "id": "calculateField",
-              "options": {
-                "alias": "Error Percent",
-                "binary": {
-                  "left": {
-                    "matcher": {
-                      "id": "byName",
-                      "options": "Error"
-                    }
-                  },
-                  "operator": "/",
-                  "right": {
-                    "matcher": {
-                      "id": "byName",
-                      "options": "Total"
-                    }
-                  }
-                },
-                "mode": "binary",
-                "reduce": {
-                  "reducer": "sum"
-                },
-                "replaceFields": false
               }
             }
           ],
@@ -1422,13 +1360,13 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 16
       },
-      "id": 13,
+      "id": 6,
       "panels": [
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -1475,10 +1413,6 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
@@ -1487,15 +1421,19 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 0,
-            "y": 313
+            "y": 302
           },
-          "id": 14,
+          "id": 2,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -1510,13 +1448,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "rate(locust_requests_total{endpoint=~\"ur.*\", status!~\"4..|5..\"}[1m])",
-              "legendFormat": "{{endpoint}}",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n      r[\"_measurement\"] == \"locust_requests\" and\n      r[\"_field\"] == \"status_code\" and\n      r.name =~ /^ur/ and\n      r._value < 400\n  )\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(every: 30s, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: float(v: r._value) / 30.0 }))\n  |> yield(name: \"rps_30s\")",
               "refId": "A"
             }
           ],
@@ -1525,7 +1461,7 @@
         },
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -1572,10 +1508,6 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
@@ -1584,15 +1516,19 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 12,
-            "y": 313
+            "y": 302
           },
-          "id": 15,
+          "id": 17,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -1607,13 +1543,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "rate(locust_requests_total{endpoint=~\"ur.*\", status=~\"4..|5..\"}[1m])",
-              "legendFormat": "{{endpoint}}",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) =>\n      r[\"_measurement\"] == \"locust_requests\" and\n      r[\"_field\"] == \"status_code\" and\n      r.name =~ /^ur/ and\n      r._value >= 400\n  )\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(every: 30s, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: float(v: r._value) / 30.0 }))\n  |> yield(name: \"rps_30s\")",
               "refId": "A"
             }
           ],
@@ -1630,13 +1564,13 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 17
       },
-      "id": 12,
+      "id": 5,
       "panels": [
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -1683,27 +1617,27 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
-              "unit": "s"
+              "unit": "ms"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 0,
-            "y": 217
+            "y": 18
           },
-          "id": 16,
+          "id": 4,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -1718,13 +1652,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "histogram_quantile(0.99, sum(rate(locust_request_duration_seconds_bucket{endpoint=~\"ur.*\"}[1m])) by (le, endpoint))",
-              "legendFormat": "__auto",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"locust_requests\" and r[\"_field\"] == \"response_time_ms\" and r.name =~ /^ur/)\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(\n      every: 30s,\n      fn: (tables=<-, column) => tables |> quantile(q: 0.99, method: \"estimate_tdigest\"),\n      createEmpty: false\n  )\n  |> yield(name: \"p99_30s\")",
               "refId": "A"
             }
           ],
@@ -1733,7 +1665,7 @@
         },
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -1780,27 +1712,27 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
-              "unit": "s"
+              "unit": "ms"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 12,
-            "y": 217
+            "y": 18
           },
-          "id": 17,
+          "id": 13,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -1815,13 +1747,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "histogram_quantile(0.95, sum(rate(locust_request_duration_seconds_bucket{endpoint=~\"ur.*\"}[1m])) by (le, endpoint))",
-              "legendFormat": "__auto",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"locust_requests\" and r[\"_field\"] == \"response_time_ms\" and r.name =~ /^ur/)\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(\n      every: 30s,\n      fn: (tables=<-, column) => tables |> quantile(q: 0.95, method: \"estimate_tdigest\"),\n      createEmpty: false\n  )\n  |> yield(name: \"p95_30s\")",
               "refId": "A"
             }
           ],
@@ -1830,7 +1760,7 @@
         },
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -1877,27 +1807,27 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
-              "unit": "s"
+              "unit": "ms"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 0,
-            "y": 226
+            "y": 30
           },
-          "id": 18,
+          "id": 12,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -1912,13 +1842,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "histogram_quantile(0.75, sum(rate(locust_request_duration_seconds_bucket{endpoint=~\"ur.*\"}[1m])) by (le, endpoint))",
-              "legendFormat": "__auto",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"locust_requests\" and r[\"_field\"] == \"response_time_ms\" and r.name =~ /^ur/)\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(\n      every: 30s,\n      fn: (tables=<-, column) => tables |> quantile(q: 0.75, method: \"estimate_tdigest\"),\n      createEmpty: false\n  )\n  |> yield(name: \"p75_30s\")",
               "refId": "A"
             }
           ],
@@ -1927,7 +1855,7 @@
         },
         {
           "datasource": {
-            "type": "prometheus",
+            "type": "influxdb",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -1974,27 +1902,27 @@
                 "steps": [
                   {
                     "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
-              "unit": "s"
+              "unit": "ms"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 12,
             "x": 12,
-            "y": 226
+            "y": 30
           },
-          "id": 19,
+          "id": 14,
           "options": {
             "legend": {
-              "calcs": [],
+              "calcs": [
+                "min",
+                "max",
+                "mean"
+              ],
               "displayMode": "table",
               "placement": "right",
               "showLegend": true
@@ -2009,13 +1937,11 @@
           "targets": [
             {
               "datasource": {
-                "type": "prometheus",
+                "type": "influxdb",
                 "uid": "${datasource}"
               },
-              "editorMode": "code",
-              "expr": "histogram_quantile(0.50, sum(rate(locust_request_duration_seconds_bucket{endpoint=~\"ur.*\"}[1m])) by (le, endpoint))",
-              "legendFormat": "__auto",
-              "range": true,
+              "hide": false,
+              "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"locust_requests\" and r[\"_field\"] == \"response_time_ms\" and r.name =~ /^ur/)\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(\n      every: 30s,\n      fn: (tables=<-, column) => tables |> quantile(q: 0.50, method: \"estimate_tdigest\"),\n      createEmpty: false\n  )\n  |> yield(name: \"p50_30s\")",
               "refId": "A"
             }
           ],
@@ -2032,18 +1958,18 @@
   "schemaVersion": 41,
   "tags": [
     "Locust",
-    "Prometheus"
+    "infuxdb2"
   ],
   "templating": {
     "list": [
       {
         "current": {
-          "text": "prometheus",
-          "value": "efin9a52cpp8gf"
+          "text": "influxdb",
+          "value": "dfiox4kchcjr4e"
         },
         "name": "datasource",
         "options": [],
-        "query": "prometheus",
+        "query": "influxdb",
         "refresh": 1,
         "regex": "",
         "type": "datasource"
@@ -2056,7 +1982,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Locust Prometheus",
-  "uid": "cd00eacc-32b3-43dd-9475-a42e3793a84f",
-  "version": 12
+  "title": "Locust InfluxDB2",
+  "uid": "575204b0-a817-404d-97d6-a6be7ca8313e",
+  "version": 7
 }
