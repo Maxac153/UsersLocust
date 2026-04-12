@@ -3,8 +3,8 @@ import json
 from locust import task, HttpUser, LoadTestShape, constant_pacing
 
 import src.tests.__common.helpers.add_arguments_helper  # noqa: F401
-import src.tests.__common.hooks.prometheus_hooks  # noqa F401
-# import src.tests.__common.hooks.influxdb2_hooks  # noqa F401
+# import src.tests.__common.hooks.prometheus_hooks  # noqa F401
+import src.tests.__common.hooks.influxdb2_hooks  # noqa F401
 from src.tests.__common.clients.httpx_client import HttpClient
 from src.tests.__common.decorators.transaction import Transaction
 from src.tests.__common.helpers.property_helper import PropertyHelper
@@ -34,13 +34,12 @@ class GetAccounts(HttpUser):
             "src/resources/properties/tests/system_fake_bank/__groups/fake_bank_host.json",
             "src/resources/properties/tests/system_fake_bank/t1_get_accounts/get_accounts_properties.json"
         )
-        self.fake_bank_host = self.properties.get("FAKE_BANK_HOST")
 
     def on_start(self) -> None:
         self.httpx_client = HttpClient(
             timeout=10.0,
-            client_url=self.fake_bank_host,
-            environment=self.environment,
+            client_url=self.properties.get("FAKE_BANK_HOST"),
+            environment=self.environment
         )
 
     @task

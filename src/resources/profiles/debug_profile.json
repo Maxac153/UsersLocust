@@ -79,12 +79,14 @@
   },
   "COMMON_SETTINGS": {
     "RUN_SETTINGS": {
-      "DATASOURCE_URL": "http://localhost:8086/k6",
-      "METRICS_BACKEND": "influxdb",
+      "DATASOURCE_URL": "http://localhost:8086",
+      "INFLUX_BUCKET": "metrics",
+      "INFLUX_ORG": "monitoring",
+      "PROMETHEUS_PORT": "9646",
       "PROFILE_NAME": "debug_profile",
       "SYSTEM_NAME": "fake_bank",
-      "PERCENT_PROFILE": 1.0,
-      "LOG_LEVEL": "info"
+      "PERCENT_PROFILE": 1.5,
+      "LOG_LEVEL": "INFO"
     },
     "PROPERTIES": {
       "DEBUG_ENABLE": "true"

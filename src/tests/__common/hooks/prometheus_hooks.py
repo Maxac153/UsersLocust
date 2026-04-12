@@ -1,30 +1,32 @@
+import os
 import threading
 
 from locust import events
 from prometheus_client import Counter, Histogram, start_http_server
 
-PROMETHEUS_PORT = 9646
+from src.tests.__common.helpers.logger_helper import LoggerHelper
 
 
 class PrometheusServerManager:
     _started = False
     _lock = threading.Lock()
+    __logger = LoggerHelper.setup_logger("prometheus", date_time_now="influxdb2")
 
     @classmethod
-    def start(cls, port: int = PROMETHEUS_PORT) -> None:
+    def start(cls, port: int = int(os.getenv("PROMETHEUS_PORT", "9646"))) -> None:
         with cls._lock:
             if cls._started:
-                print("⚠️ Prometheus сервер уже запущен")
+                cls.__logger.warning("⚠️ Prometheus Server Is Already Running")
                 return
             try:
                 start_http_server(port)
                 cls._started = True
-                print(f"🚀 Prometheus metrics: http://localhost:{port}/metrics")
+                cls.__logger.info(f"🚀 Prometheus Metrics: http://localhost:{port}/metrics")
             except OSError as e:
-                if "Address already in use" in str(e):
-                    print(f"⚠️ Порт {port} занят, метрики доступны")
+                if "Address Already In Use" in str(e):
+                    cls.__logger.warning(f"⚠️ Port {port} Is Busy, Metrics Are Available")
                 else:
-                    print(f"❌ Ошибка запуска Prometheus: {e}")
+                    cls.__logger.error(f"❌ Prometheus Startup Error: {e}")
 
 
 class PrometheusMetricsSender:
@@ -89,7 +91,7 @@ def on_request(
         response=None,
         context=None,
         **kwargs
-):
+) -> None:
     PrometheusMetricsSender.on_request(
         request_type=request_type,
         name=name,

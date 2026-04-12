@@ -6,18 +6,25 @@ import time
 from influxdb_client import InfluxDBClient, Point, WriteOptions
 from locust import events
 
+from src.tests.__common.helpers.logger_helper import LoggerHelper
+
 
 class InfluxMetricsWriter:
+    __logger = LoggerHelper.setup_logger("influxdb2", date_time_now="influxdb2")
+
     def __init__(self):
         self.write_api = None
         self.influx_client = None
         self.metrics_queue = queue.Queue()
         self.background_thread = None
         self.stop_background = threading.Event()
+        self.url = os.getenv("DATASOURCE_URL", "http://localhost:8086")
         self.bucket = os.getenv("INFLUX_BUCKET", "metrics")
         self.org = os.getenv("INFLUX_ORG", "monitoring")
+        self.token = os.getenv("INFLUX_TOKEN", "super-secret-token")
 
-    def get_status_code(self, response=None, context=None) -> int:
+    @staticmethod
+    def get_status_code(response=None, context=None) -> int:
         if response and hasattr(response, "status_code"):
             return int(response.status_code)
         if context:
@@ -31,8 +38,8 @@ class InfluxMetricsWriter:
 
     def start(self) -> None:
         self.influx_client = InfluxDBClient(
-            url=os.getenv("INFLUX_URL", "http://localhost:8086"),
-            token=os.getenv("INFLUX_TOKEN", "super-secret-token"),
+            url=self.url,
+            token=self.token,
             org=self.org,
         )
         self.write_api = self.influx_client.write_api(
@@ -67,7 +74,7 @@ class InfluxMetricsWriter:
                                     record=batch,
                                 )
                             except Exception as e:
-                                print(f"Influx write error: {e}")
+                                self.__logger.error(f"Influx Write Error: {e}")
                             batch = []
                             last_send = now
                         break
@@ -79,7 +86,7 @@ class InfluxMetricsWriter:
                         pass
 
             except Exception as e:
-                print(f"Background writer error: {e}")
+                self.__logger.error(f"Background Writer Error: {e}")
 
     def on_request(
             self,
@@ -131,7 +138,7 @@ class InfluxMetricsWriter:
                     record=batch,
                 )
             except Exception as e:
-                print(f"Final flush error: {e}")
+                self.__logger.error(f"Final Flush Error: {e}")
 
         if self.write_api is not None:
             self.write_api.flush()

@@ -19,20 +19,26 @@ class ParallelLocustRunner:
     def __init__(
             self,
             profiles: TestsParam,
-            debug_enable: str,
+            debug_enable: str = "true",
             date_now_str: str = datetime.now().strftime("%Y-%m-%d"),
             data_time_now_str: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     ) -> None:
         self.profiles = profiles
+        self.common_settings = profiles.COMMON_SETTINGS.PROPERTIES
         self.debug_enable = debug_enable
         self.date_now = date_now_str
         self.data_time_now = data_time_now_str
+        self.processes_lock = threading.Lock()
+        self.processes = []
+        os.environ["DATASOURCE_URL"] = profiles.COMMON_SETTINGS.RUN_SETTINGS.DATASOURCE_URL
+        os.environ["INFLUX_BUCKET"] = profiles.COMMON_SETTINGS.RUN_SETTINGS.INFLUX_BUCKET
+        os.environ["INFLUX_ORG"] = profiles.COMMON_SETTINGS.RUN_SETTINGS.INFLUX_ORG
+        os.environ["PROMETHEUS_PORT"] = profiles.COMMON_SETTINGS.RUN_SETTINGS.PROMETHEUS_PORT
+        os.environ["LOG_LEVEL"] = profiles.COMMON_SETTINGS.RUN_SETTINGS.LOG_LEVEL
         self.logger = LoggerHelper.setup_logger(
             date_now=date_now_str,
             date_time_now=data_time_now_str
         )
-        self.processes_lock = threading.Lock()
-        self.processes = []
 
     def create_commands(self) -> List[List[str]]:
         """Generates Commands For All Tests"""
@@ -41,6 +47,7 @@ class ParallelLocustRunner:
             test = self.profiles.elements[test_name]
             for scenario_name in test.profile.PROFILE:
                 pacing, stages = ProfileHelper.close_profile(scenario_name, self.debug_enable, test.profile)
+                test.profile.PROPERTIES.update(self.common_settings)
                 cmd = [
                     "locust", "-f", test.profile.RUN.TEST_PATH,
                     f"--DEBUG_ENABLE={self.debug_enable}",
@@ -49,7 +56,9 @@ class ParallelLocustRunner:
                     f"--PROPERTIES={json.dumps(test.profile.PROPERTIES)}",
                     "--host=localhost",
                     "--headless",
-                    "--logfile", f"output/logs/{self.date_now}/{self.data_time_now}/{test_name}.log"
+                    "--logfile", f"output/logs/{self.date_now}/{self.data_time_now}/{test_name}.log",
+                    "--csv", f"output/logs/{self.date_now}/{self.data_time_now}/csv/csv",
+                    "--csv-full-history"
                 ]
                 commands.append(cmd)
 
@@ -98,7 +107,7 @@ class ParallelLocustRunner:
             self.logger.error("Failed To Start %s: %s", prefix, e)
 
     def run_parallel_unlimited(self, max_workers: int = 1_000) -> None:
-        """Runs ALL Tests In Parallel"""
+        """Runs All Tests In Parallel"""
         commands = self.create_commands()
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -111,7 +120,7 @@ class ParallelLocustRunner:
 
         self.logger.info("✅ Started %s Locust Tests In Parallel", len(commands))
 
-    def monitor_status(self):
+    def monitor_status(self) -> None:
         """Status Monitoring"""
         while any(p[0].poll() is None for p in self.processes):
             with self.processes_lock:
@@ -121,7 +130,7 @@ class ParallelLocustRunner:
             self.logger.info("⏱️ Running: %d | Finished: %d | Total: %d", running, finished, len(self.processes))
             time.sleep(10)
 
-    def run(self):
+    def run(self) -> None:
         """Main Runner"""
         try:
             self.run_parallel_unlimited()
@@ -174,6 +183,12 @@ if __name__ == "__main__":
         profile_json = json.load(f)
 
     json_object = TestsParam.model_validate(profile_json)
+    percent = json_object.COMMON_SETTINGS.RUN_SETTINGS.PERCENT_PROFILE
+    for element in json_object.elements.values():
+        for scenario in element.profile.PROFILE.values():
+            for step in scenario.STEPS:
+                step.TPS *= percent
+
     date_now = datetime.now().strftime("%Y-%m-%d")
     date_time_now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     ProfileLogHelper.process_profiles(

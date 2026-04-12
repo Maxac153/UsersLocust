@@ -17,7 +17,7 @@ class HttpClient:
             timeout: float | int,
             client_url: str,
             environment: Environment | None = None
-    ):
+    ) -> None:
         logging.getLogger("httpx").setLevel(logging.WARNING)
         event_hooks = {}
 
@@ -49,5 +49,5 @@ class HttpClient:
     ) -> Response:
         return self.client.post(url, json=json, extensions=extensions)
 
-    def close(self):
+    def close(self) -> None:
         self.client.close()

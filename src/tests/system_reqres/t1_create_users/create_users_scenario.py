@@ -2,6 +2,9 @@ import json
 
 from locust import task, constant_pacing, HttpUser, LoadTestShape
 
+import src.tests.__common.helpers.add_arguments_helper  # noqa: F401
+# import src.tests.__common.hooks.prometheus_hooks  # noqa F401
+import src.tests.__common.hooks.influxdb2_hooks  # noqa F401
 from src.tests.__common.clients.httpx_client import HttpClient
 from src.tests.__common.decorators.transaction import Transaction
 from src.tests.__common.helpers.property_helper import PropertyHelper
@@ -9,7 +12,8 @@ from src.tests.__common.models.stage.stages_config import StagesConfig
 
 STAGES = [{"duration": 60, "users": 1, "spawn_rate": 1}]
 
-class Accounts(HttpUser):
+
+class CreateUsers(HttpUser):
     host = "localhost"
     httpx_client = None
 
@@ -26,16 +30,15 @@ class Accounts(HttpUser):
         self.properties = PropertyHelper.read_properties(
             getattr(options, "PROPERTIES", None),
             "src/resources/properties/__common/common_properties.json",
-            "src/resources/properties/tests/system_fake_bank/fake_bank.json",
-            "src/resources/properties/tests/system_fake_bank/__groups/fake_bank_host.json",
-            "src/resources/properties/tests/system_fake_bank/t1_get_accounts/get_accounts_properties.json"
+            "src/resources/properties/tests/system_reqres/reqres.json",
+            "src/resources/properties/tests/system_reqres/__groups/reqres_host.json",
+            "src/resources/properties/tests/system_reqres/t1_create_users/create_users_properties.json"
         )
-        self.fake_bank_host = self.properties.get("FAKE_BANK_HOST")
 
     def on_start(self) -> None:
         self.httpx_client = HttpClient(
             timeout=10.0,
-            client_url=self.fake_bank_host,
+            client_url=self.properties.get("REQRES_HOST"),
             environment=self.environment,
         )
 
@@ -48,7 +51,7 @@ class Accounts(HttpUser):
                 "name": "morpheus",
                 "job": "leader"
             },
-            extensions={"request_name": "ur_reqres_1_rest_post_create_users_/api/users"},
+            extensions={"request_name": "ur_reqres_1.1_rest_post_create_users_/api/users"},
         )
 
         if self.debug_enable:

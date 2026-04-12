@@ -8,7 +8,7 @@ from src.tests.__common.models.locust_request_event.locust_request_event import 
 
 
 class Transaction:
-    def __init__(self, transaction_name: str):
+    def __init__(self, transaction_name: str) -> None:
         self.transaction_name = transaction_name
 
     def __call__(self, func: Callable[..., Any]) -> Callable[..., Any]:

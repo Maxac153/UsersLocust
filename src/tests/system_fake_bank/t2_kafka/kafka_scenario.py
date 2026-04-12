@@ -3,8 +3,8 @@ import json
 from locust import task, HttpUser, LoadTestShape, events, constant_pacing
 
 import src.tests.__common.helpers.add_arguments_helper  # noqa: F401
-import src.tests.__common.hooks.prometheus_hooks  # noqa F401
-# import src.tests.__common.hooks.influxdb2_hooks  # noqa F401
+# import src.tests.__common.hooks.prometheus_hooks  # noqa F401
+import src.tests.__common.hooks.influxdb2_hooks  # noqa F401
 from src.tests.__common.decorators.transaction import Transaction
 from src.tests.__common.helpers.property_helper import PropertyHelper
 from src.tests.__common.models.stage.stages_config import StagesConfig

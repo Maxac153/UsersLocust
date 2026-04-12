@@ -269,10 +269,12 @@ const property = PropertyHelper.readProperties(
   },
   "COMMON_SETTINGS": {
     "RUN_SETTINGS": {
-      "DATASOURCE_URL": "http://localhost:8086/k6",
-      "METRICS_BACKEND": "influxdb",
+      "DATASOURCE_URL": "http://localhost:8086",
+      "INFLUX_BUCKET": "metrics",
+      "INFLUX_ORG": "monitoring",
+      "PROMETHEUS_PORT": "9646",
       "PROFILE_NAME": "debug_profile",
-      "SYSTEM_NAME": "users",
+      "SYSTEM_NAME": "fake_bank",
       "PERCENT_PROFILE": 1.0,
       "LOG_LEVEL": "error"
     },
@@ -301,8 +303,10 @@ const property = PropertyHelper.readProperties(
 
 - **COMMON_SETTINGS** - Параметры для всех тестов
   - **RUN_SETTINGS** - Параметры для bash скрипта
-    - **DATASOURCE_URL** - Host куда отправлять метрики
-    - **METRICS_BACKEND** - Куда отправлять метрики influxdb или prometheus
+    - **DATASOURCE_URL** - Host куда отправлять метрики (InfluxDB2)
+    - **INFLUX_BUCKET** - InfluxDB2 bucket
+    - **INFLUX_ORG** - InfluxDB2 org
+    - **PROMETHEUS_PORT** - Порт Prometheus
     - **PROFILE_NAME** - Название профиля нагрузки
     - **SYSTEM_NAME** - Название системы
     - **PERCENT_PROFILE** - Процент от профиля
@@ -498,10 +502,12 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
   },
   "COMMON_SETTINGS": {
     "RUN_SETTINGS": {
-      "DATASOURCE_URL": "http://localhost:8086/k6",
-      "METRICS_BACKEND": "influxdb",
+      "DATASOURCE_URL": "http://localhost:8086",
+      "INFLUX_BUCKET": "metrics",
+      "INFLUX_ORG": "monitoring",
+      "PROMETHEUS_PORT": "9646",
       "PROFILE_NAME": "debug_profile",
-      "SYSTEM_NAME": "users",
+      "SYSTEM_NAME": "fake_bank",
       "PERCENT_PROFILE": 1.0,
       "LOG_LEVEL": "error"
     },
@@ -645,10 +651,12 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
   },
   "COMMON_SETTINGS": {
     "RUN_SETTINGS": {
-      "DATASOURCE_URL": "http://localhost:8086/k6",
-      "METRICS_BACKEND": "influxdb",
+      "DATASOURCE_URL": "http://localhost:8086",
+      "INFLUX_BUCKET": "metrics",
+      "INFLUX_ORG": "monitoring",
+      "PROMETHEUS_PORT": "9646",
       "PROFILE_NAME": "debug_profile",
-      "SYSTEM_NAME": "users",
+      "SYSTEM_NAME": "fake_bank",
       "PERCENT_PROFILE": 1.0,
       "LOG_LEVEL": "error"
     },
@@ -663,7 +671,7 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
 
 ### InfluxDB
 
-[locust_influxdb.png](img/readme/locust_influxdb2.png)
+![locust_influxdb.png](img/readme/locust_influxdb2.png)
 
 Путь шаблона для Grafana: [Locust InfluxDB](monitoring/grafana/influxdb/locust_influxdb2.json)
 
@@ -673,7 +681,7 @@ docker compose -f docker-compose-influxdb.yml up -d
 
 ### Prometheus
 
-[locust_prometheus.png](img/readme/locust_prometheus.png)
+![locust_prometheus.png](img/readme/locust_prometheus.png)
 
 Путь шаблона для Grafana: [Locust Prometheus](monitoring/grafana/prometheus/locust_prometheus.json)
 
@@ -717,3 +725,5 @@ docker compose -f docker-compose-prometheus.yml up -d
 4. Написать скрипт проверки тестов перед запуском (Аналог galting)
 5. Написать Jenkins джобу
 6. Добавить тег генератора нагрузки при отправке метрик
+7. Проблема отправки метрик если один запрос
+8. Не работает мониторинг prometheus (конкуренция тестов)
