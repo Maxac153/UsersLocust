@@ -20,15 +20,15 @@ class GetAccounts(HttpUser):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         options = self.environment.parsed_options
-        self.debug_enable = getattr(options, "DEBUG_ENABLE", True).strip().lower() == "true"
-        self.__class__.wait_time = constant_pacing(getattr(options, "PACING", 1.0))
-        stages_str = getattr(options, "STAGES", None)
+        self.debug_enable = options.DEBUG_ENABLE.strip().lower() == "true"
+        self.__class__.wait_time = constant_pacing(options.PACING)
+        stages_str = options.STAGES
         if stages_str is not None:
             StagesConfig.model_validate_json(stages_str)
             global STAGES
             STAGES = json.loads(stages_str)
         self.properties = PropertyHelper.read_properties(
-            getattr(options, "PROPERTIES", None),
+            options.PROPERTIES,
             "src/resources/properties/__common/common_properties.json",
             "src/resources/properties/tests/system_fake_bank/fake_bank.json",
             "src/resources/properties/tests/system_fake_bank/__groups/fake_bank_host.json",

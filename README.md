@@ -15,7 +15,7 @@
 6. [Правила оформления кода в проекте](#правила-оформления-кода-в-проекте)
    - 6.1 [Наименование файлов](#наименование-файлов)
    - 6.2 [Наименование переменных](#наименование-переменных)
-   - 6.3 [Наименование scenario, steps и groups](#наименование-scenario-steps-и-groups)
+   - 6.3 [Наименование scenario, steps и transaction](#наименование-scenario-steps-и-transaction)
 7. [Профиль нагрузки](#профиль-нагрузки)
 8. [Проверка тестов перед запуском](#проверка-тестов-перед-запуском)
 9. [Запуск тестов](#запуск-тестов)
@@ -62,10 +62,15 @@
 - **docks** - Документация систем (users, ...)
 - **img** - Картинки для документации
 - **input** - Данные для тестов, пулы данных, логины пароли от баз
+  - **data_pool** - Пул данных для тестов
+  - **debug_tests** - Config для проверки теста
   - **env** - Secretes для postgres, kafka, redis, ...
+  - **pre_gen_config** - Конфиг для прегенерации данных
   - **ssl_kafka** - Kafka сертификаты
+  - **step_generator** - Конфиг для изменения шагов профиля
 - **jenkins** - Pipeline для Jenkins
 - **monitoring** - Настройки для InfluxDB и дашборды для Grafana
+- **postman** - Postman коллекции
 - **scripts** - Вспомогательные скрипты (запуск, тестов, ...)
 - **sql** - Запросы SQL для подготовки данных или подготовки базы перед тестом
 - **src** - Исходный код
@@ -84,20 +89,100 @@
 ### Структура системы
 
 - **pre_test** - Скрипты подготовки перед запуском тестов
-- **system_petstore** - Название системы
-- **system_users** - Название системы
+- **system_common** - Название системы
+- **system_fake_bank** - Название системы
       - **__common** - Общие скрипты
-      - **t1_authorization** - Тестовый сценарий системы users
+      - **t1_get_accounts** - Тестовый сценарий системы fake bank
           - **helpers** - Вспомогательные классы системы
           - **authorization_test** - Тест 1
-      - **t2_registration** - Тестовый сценарий системы users
+      - **t2_kafka** - Тестовый сценарий системы fake bank
 
 ## Структура тестов
 
 Пример тестового сценария:
 
 ```python
+import json
 
+from locust import task, HttpUser, LoadTestShape, constant_pacing
+
+import src.tests.__common.helpers.add_arguments_helper  # noqa: F401
+# import src.tests.__common.hooks.prometheus_hooks  # noqa F401
+import src.tests.__common.hooks.influxdb2_hooks  # noqa F401
+from src.tests.__common.clients.httpx_client import HttpClient
+from src.tests.__common.decorators.transaction import Transaction
+from src.tests.__common.helpers.property_helper import PropertyHelper
+from src.tests.__common.models.stage.stages_config import StagesConfig
+
+# Профиль нагрузки по умолчанию
+STAGES = [{"duration": 60, "users": 1, "spawn_rate": 1}]
+
+
+# Сценарий
+class GetAccounts(HttpUser):
+    # Хост
+    host = "localhost"
+    # Клиент HTTPX
+    httpx_client = None
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        # Параметры из системы
+        options = self.environment.parsed_options
+        # Debug enable
+        self.debug_enable = options.DEBUG_ENABLE.strip().lower() == "true"
+        # Pacing
+        self.__class__.wait_time = constant_pacing(options.PACING)
+        # Профиль нагрузки
+        stages_str = options.STAGES
+        if stages_str is not None:
+            StagesConfig.model_validate_json(stages_str)
+            global STAGES
+            STAGES = json.loads(stages_str)
+        # Properties
+        self.properties = PropertyHelper.read_properties(
+            options.PROPERTIES,
+            "src/resources/properties/__common/common_properties.json",
+            "src/resources/properties/tests/system_fake_bank/fake_bank.json",
+            "src/resources/properties/tests/system_fake_bank/__groups/fake_bank_host.json",
+            "src/resources/properties/tests/system_fake_bank/t1_get_accounts/get_accounts_properties.json"
+        )
+    
+    # Действие перед тестом
+    def on_start(self) -> None:
+        # Инициализация httpx клиента
+        self.httpx_client = HttpClient(
+            timeout=10.0,
+            client_url=self.properties.get("FAKE_BANK_HOST"),
+            environment=self.environment
+        )
+    
+    # Тест
+    @task
+    @Transaction("uc_fake_bank_1_rest_get_accounts")
+    def get_accounts_scenario(self) -> None:
+        self.httpx_client.get(
+            "/fakebank/accounts",
+            extensions={"request_name": "ur_fake_bank_1.1_rest_get_/fakebank/accounts"},
+        )
+
+        if self.debug_enable:
+            self.environment.runner.quit()
+    
+    # Действие после теста
+    def on_stop(self) -> None:
+        # Закрываем клиент
+        self.httpx_client.close()
+
+
+# Нагрузка
+class StagesShape(LoadTestShape):
+    def tick(self) -> tuple[int, int] | None:
+        run_time = self.get_run_time()
+        for stage in STAGES:
+            if run_time < stage["duration"]:
+                return stage["users"], stage["spawn_rate"]
+        return None
 ```
 
 ## Работа с Properties в проекте
@@ -108,13 +193,14 @@
 
 Пример использования в коде:
 
-```js
-const property = PropertyHelper.readProperties(
-  __ENV.PROPERTIES,
-  open('../../../resources/properties/__common/common_test_properties.json'),
-  open('../../../resources/properties/system_users/users_properties.json'),
-  open('../../../resources/properties/system_users/t1_authorization/authorization_properties.json')
-);
+```textmate
+self.properties = PropertyHelper.read_properties(
+    options.PROPERTIES,
+    "src/resources/properties/__common/common_properties.json",
+    "src/resources/properties/tests/system_fake_bank/fake_bank.json",
+    "src/resources/properties/tests/system_fake_bank/__groups/fake_bank_host.json",
+    "src/resources/properties/tests/system_fake_bank/t1_get_accounts/get_accounts_properties.json"
+)
 ```
 
 ## Правила оформления кода в проекте
@@ -122,7 +208,7 @@ const property = PropertyHelper.readProperties(
 ### Наименование файлов
 
 - Наименование тестов **`<Название класса>_test`**
-- Наименование профилей **`<Название системы>_<Название профиля>_profile.json`**
+- Наименование профилей **`<Название системы>_<Название профиля>_<Процент профиля>%_<Количество шагов>_steps_profile.json`**
 
 ### Наименование переменных
 
@@ -131,11 +217,11 @@ const property = PropertyHelper.readProperties(
 - Аббревиатуры также писать CamelCase, например **SqlSelect**, а не **SQLSelect**
 - Для названия каталогов и файлов использовать **lower_snake_case**
 
-### Наименование scenario, steps и groups
+### Наименование scenario, steps и transaction
 
 - Использовать **lower_snake_case**
 - Названия сценария (scenario) **`<SCENARIO_NAME>_SCENARIO`**
-- Названия групп (groups) **`uc_<system_name>_<script_code (1)>_<operation_name (kafka, rest, ...)>_<group_name, endpoint - (если в группе одна операция)>`**
+- Названия групп (transaction) **`uc_<system_name>_<script_code (1)>_<operation_name (kafka, rest, ...)>_<group_name, endpoint - (если в группе одна операция)>`**
 - Название шагов (steps) **`ur_<system_name>_<script_code (1.1)>_<operation_name (kaffka, rest, ...)>_<operation_type (get, post, delete, send, ...)>_<step_name, endpoint>`**
 - Названия запросов к Database или Redis начинать с **`db_<system_name>_<script_code>_<database_host>_<table_name, key_name>`**
 - Для сообщений лога использовать английский язык. Пример формата - **«Message Something Data»**
@@ -149,17 +235,17 @@ const property = PropertyHelper.readProperties(
 ```json
 {
   "elements": {
-    "t1_authorization": {
+    "t1_create_users": {
       "x": 300,
       "y": 160,
       "profile": {
         "RUN": {
           "ENV": "input/env/redis/redis.json",
           "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t1_authorization/authorization_test.js"
+          "TEST_PATH": "src/tests/system_reqres/t1_create_users/create_users_scenario.py"
         },
         "PROFILE": {
-          "AUTHORIZATION_ADMIN_SCENARIO": {
+          "GET_ACCOUNTS_SCENARIO": {
             "PACING": 10,
             "STEPS": [
               {
@@ -173,93 +259,15 @@ const property = PropertyHelper.readProperties(
                 "HOLD_TIME": 3
               }
             ]
-          },
-          "AUTHORIZATION_USERS_SCENARIO": {
-            "PACING": 10,
-            "STEPS": [
-              {
-                "TPS": 0.1,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              },
-              {
-                "TPS": 0.0,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              },
-              {
-                "TPS": 0.1,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              }
-            ]
           }
         },
         "PROPERTIES": {
-          "REDIS_KEY_ADD": "users_t1_authorization"
-        }
-      }
-    },
-    "t2_registration": {
-      "x": 400,
-      "y": 280,
-      "profile": {
-        "RUN": {
-          "ENV": "input/env/redis/redis.json",
-          "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t2_registration/registration_test.js"
-        },
-        "PROFILE": {
-          "REGISTRATION_SCENARIO": {
-            "PACING": 5,
-            "STEPS": [
-              {
-                "TPS": 0.5,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 5
-              }
-            ]
-          }
-        },
-        "PROPERTIES": {
-          "REDIS_KEY_READ": "users_t2_registration"
-        }
-      }
-    },
-    "t3_upload_avatar": {
-      "x": 400,
-      "y": 280,
-      "profile": {
-        "RUN": {
-          "ENV": "input/env/redis/redis.json",
-          "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t3_upload_avatar/upload_avatar_test.js"
-        },
-        "PROFILE": {
-          "UPLOAD_AVATAR_SCENARIO": {
-            "PACING": 3,
-            "STEPS": [
-              {
-                "TPS": 0.01,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 10
-              }
-            ]
-          }
-        },
-        "PROPERTIES": {
-          "REDIS_KEY_READ": "users_t3_upload_avatar"
+          "REDIS_KEY_ADD": "reqres_t1_create_users"
         }
       }
     }
   },
   "connections": [
-    {
-      "from": "t1_authorization",
-      "to": "t2_authorization",
-      "type": "->",
-      "direction": "uni"
-    }
   ],
   "form": {
     "x": 50,
@@ -274,12 +282,12 @@ const property = PropertyHelper.readProperties(
       "INFLUX_ORG": "monitoring",
       "PROMETHEUS_PORT": "9646",
       "PROFILE_NAME": "debug_profile",
-      "SYSTEM_NAME": "fake_bank",
+      "SYSTEM_NAME": "reqres",
       "PERCENT_PROFILE": 1.0,
-      "LOG_LEVEL": "error"
+      "LOG_LEVEL": "INFO"
     },
     "PROPERTIES": {
-      "DEBUG_ENABLE": "false"
+      "DEBUG_ENABLE": "true"
     }
   }
 }
@@ -382,17 +390,17 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
 ```json
 {
   "elements": {
-    "t1_authorization": {
+    "t1_get_accounts": {
       "x": 300,
       "y": 160,
       "profile": {
         "RUN": {
           "ENV": "input/env/redis/redis.json",
           "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t1_authorization/authorization_test.js"
+          "TEST_PATH": "src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py"
         },
         "PROFILE": {
-          "AUTHORIZATION_ADMIN_SCENARIO": {
+          "GET_ACCOUNTS_SCENARIO": {
             "PACING": 10,
             "STEPS": [
               {
@@ -406,41 +414,21 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
                 "HOLD_TIME": 3
               }
             ]
-          },
-          "AUTHORIZATION_USERS_SCENARIO": {
-            "PACING": 10,
-            "STEPS": [
-              {
-                "TPS": 0.1,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              },
-              {
-                "TPS": 0.0,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              },
-              {
-                "TPS": 0.1,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              }
-            ]
           }
         },
         "PROPERTIES": {
-          "REDIS_KEY_ADD": "users_t1_authorization"
+          "REDIS_KEY_ADD": "users_t1_get_accounts"
         }
       }
     },
-    "t2_registration": {
+    "t2_kafka": {
       "x": 400,
       "y": 280,
       "profile": {
         "RUN": {
           "ENV": "input/env/redis/redis.json",
           "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t2_registration/registration_test.js"
+          "TEST_PATH": "src/tests/system_fake_bank/t2_kafka/kafka_scenario.py"
         },
         "PROFILE": {
           "REGISTRATION_SCENARIO": {
@@ -450,46 +438,25 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
                 "TPS": 0.5,
                 "RAMP_TIME": 1,
                 "HOLD_TIME": 5
-              }
-            ]
-          }
-        },
-        "PROPERTIES": {
-          "REDIS_KEY_READ": "users_t2_registration"
-        }
-      }
-    },
-    "t3_upload_avatar": {
-      "x": 400,
-      "y": 280,
-      "profile": {
-        "RUN": {
-          "ENV": "input/env/redis/redis.json",
-          "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t3_upload_avatar/upload_avatar_test.js"
-        },
-        "PROFILE": {
-          "UPLOAD_AVATAR_SCENARIO": {
-            "PACING": 3,
-            "STEPS": [
+              },
               {
-                "TPS": 0.01,
+                "TPS": 1.0,
                 "RAMP_TIME": 1,
-                "HOLD_TIME": 10
+                "HOLD_TIME": 5
               }
             ]
           }
         },
         "PROPERTIES": {
-          "REDIS_KEY_READ": "users_t3_upload_avatar"
+          "REDIS_KEY_READ": "users_t1_get_accounts"
         }
       }
     }
   },
   "connections": [
     {
-      "from": "t1_authorization",
-      "to": "t2_authorization",
+      "from": "users_t1_get_accounts",
+      "to": "t2_kafka",
       "type": "->",
       "direction": "uni"
     }
@@ -509,10 +476,10 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
       "PROFILE_NAME": "debug_profile",
       "SYSTEM_NAME": "fake_bank",
       "PERCENT_PROFILE": 1.0,
-      "LOG_LEVEL": "error"
+      "LOG_LEVEL": "INFO"
     },
     "PROPERTIES": {
-      "DEBUG_ENABLE": "false"
+      "DEBUG_ENABLE": "true"
     }
   }
 }
@@ -531,17 +498,17 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
 ```json
 {
   "elements": {
-    "t1_authorization": {
+    "t1_get_accounts": {
       "x": 300,
       "y": 160,
       "profile": {
         "RUN": {
           "ENV": "input/env/redis/redis.json",
           "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t1_authorization/authorization_test.js"
+          "TEST_PATH": "src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py"
         },
         "PROFILE": {
-          "AUTHORIZATION_ADMIN_SCENARIO": {
+          "GET_ACCOUNTS_SCENARIO": {
             "PACING": 10,
             "STEPS": [
               {
@@ -555,41 +522,21 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
                 "HOLD_TIME": 3
               }
             ]
-          },
-          "AUTHORIZATION_USERS_SCENARIO": {
-            "PACING": 10,
-            "STEPS": [
-              {
-                "TPS": 0.1,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              },
-              {
-                "TPS": 0.0,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              },
-              {
-                "TPS": 0.1,
-                "RAMP_TIME": 1,
-                "HOLD_TIME": 3
-              }
-            ]
           }
         },
         "PROPERTIES": {
-          "REDIS_KEY_ADD": "users_t1_authorization"
+          "REDIS_KEY_ADD": "users_t1_get_accounts"
         }
       }
     },
-    "t2_registration": {
+    "t2_kafka": {
       "x": 400,
       "y": 280,
       "profile": {
         "RUN": {
           "ENV": "input/env/redis/redis.json",
           "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t2_registration/registration_test.js"
+          "TEST_PATH": "src/tests/system_fake_bank/t2_kafka/kafka_scenario.py"
         },
         "PROFILE": {
           "REGISTRATION_SCENARIO": {
@@ -599,46 +546,25 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
                 "TPS": 0.5,
                 "RAMP_TIME": 1,
                 "HOLD_TIME": 5
-              }
-            ]
-          }
-        },
-        "PROPERTIES": {
-          "REDIS_KEY_READ": "users_t2_registration"
-        }
-      }
-    },
-    "t3_upload_avatar": {
-      "x": 400,
-      "y": 280,
-      "profile": {
-        "RUN": {
-          "ENV": "input/env/redis/redis.json",
-          "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_users/t3_upload_avatar/upload_avatar_test.js"
-        },
-        "PROFILE": {
-          "UPLOAD_AVATAR_SCENARIO": {
-            "PACING": 3,
-            "STEPS": [
+              },
               {
-                "TPS": 0.01,
+                "TPS": 1.0,
                 "RAMP_TIME": 1,
-                "HOLD_TIME": 10
+                "HOLD_TIME": 5
               }
             ]
           }
         },
         "PROPERTIES": {
-          "REDIS_KEY_READ": "users_t3_upload_avatar"
+          "REDIS_KEY_READ": "users_t1_get_accounts"
         }
       }
     }
   },
   "connections": [
     {
-      "from": "t1_authorization",
-      "to": "t2_authorization",
+      "from": "users_t1_get_accounts",
+      "to": "t2_kafka",
       "type": "->",
       "direction": "uni"
     }
@@ -658,10 +584,10 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
       "PROFILE_NAME": "debug_profile",
       "SYSTEM_NAME": "fake_bank",
       "PERCENT_PROFILE": 1.0,
-      "LOG_LEVEL": "error"
+      "LOG_LEVEL": "INFO"
     },
     "PROPERTIES": {
-      "DEBUG_ENABLE": "false"
+      "DEBUG_ENABLE": "true"
     }
   }
 }
