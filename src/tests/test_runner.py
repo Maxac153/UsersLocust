@@ -43,17 +43,17 @@ class ParallelLocustRunner:
     def create_commands(self) -> List[List[str]]:
         """Generates Commands For All Tests"""
         commands = []
-        for test_name in self.profiles.elements:
-            test = self.profiles.elements[test_name]
-            for scenario_name in test.profile.PROFILE:
-                pacing, stages = ProfileHelper.close_profile(scenario_name, self.debug_enable, test.profile)
-                test.profile.PROPERTIES.update(self.common_settings)
+        for test_name in self.profiles.ELEMENTS:
+            test = self.profiles.ELEMENTS[test_name]
+            for scenario_name in test.PROFILE.PROFILE:
+                pacing, stages = ProfileHelper.close_profile(scenario_name, self.debug_enable, test.PROFILE)
+                test.PROFILE.PROPERTIES.update(self.common_settings)
                 cmd = [
-                    "locust", "-f", test.profile.RUN.TEST_PATH,
+                    "locust", "-f", test.PROFILE.RUN.TEST_PATH,
                     f"--DEBUG_ENABLE={self.debug_enable}",
                     f"--PACING={pacing}",
                     f"--STAGES={json.dumps(stages)}",
-                    f"--PROPERTIES={json.dumps(test.profile.PROPERTIES)}",
+                    f"--PROPERTIES={json.dumps(test.PROFILE.PROPERTIES)}",
                     "--host=localhost",
                     "--headless",
                     "--logfile", f"output/logs/{self.date_now}/{self.data_time_now}/{test_name}.log",
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--DEBUG_ENABLE",
         type=str,
-        default="true",
+        default="False",
         help="Debug Enable"
     )
     args = parser.parse_args()
@@ -184,8 +184,8 @@ if __name__ == "__main__":
 
     json_object = TestsParam.model_validate(profile_json)
     percent = json_object.COMMON_SETTINGS.RUN_SETTINGS.PERCENT_PROFILE
-    for element in json_object.elements.values():
-        for scenario in element.profile.PROFILE.values():
+    for element in json_object.ELEMENTS.values():
+        for scenario in element.PROFILE.PROFILE.values():
             for step in scenario.STEPS:
                 step.TPS *= percent
 

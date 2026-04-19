@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class Form(BaseModel):
-    x: int
-    y: int
-    width: int
-    height: int
+    X: int
+    Y: int
+    WIDTH: int
+    HEIGHT: int

@@ -1,7 +1,9 @@
+from typing import List
+
 from pydantic import BaseModel
 
 
 class Run(BaseModel):
-    ENV: str
+    ENV: List[str]
     LOAD_GENERATOR: str
     TEST_PATH: str

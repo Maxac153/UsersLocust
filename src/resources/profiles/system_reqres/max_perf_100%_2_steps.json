@@ -1,11 +1,13 @@
 {
-  "elements": {
+  "ELEMENTS": {
     "t1_create_users": {
-      "x": 300,
-      "y": 160,
-      "profile": {
+      "X": 300,
+      "Y": 160,
+      "PROFILE": {
         "RUN": {
-          "ENV": "input/env/redis/redis.json",
+          "ENV": [
+            "input/env/redis/redis.json"
+          ],
           "LOAD_GENERATOR": "localhost",
           "TEST_PATH": "src/tests/system_reqres/t1_create_users/create_users_scenario.py"
         },
@@ -32,13 +34,13 @@
       }
     }
   },
-  "connections": [
+  "CONNECTIONS": [
   ],
-  "form": {
-    "x": 50,
-    "y": 50,
-    "width": 1280,
-    "height": 720
+  "FORM": {
+    "X": 50,
+    "Y": 50,
+    "WIDTH": 1280,
+    "HEIGHT": 720
   },
   "COMMON_SETTINGS": {
     "RUN_SETTINGS": {

@@ -54,9 +54,9 @@
 
 ## Kubernetes
 
-**system_common** - NT Prod
-**system_petstore** - NT Prod
-**system_users** - NT Prod
+* **system_common** - NT Prod
+* **system_petstore** - NT Prod
+* **system_users** - NT Prod
 
 ## Структура каталогов
 
@@ -108,9 +108,7 @@
 Пример тестового сценария:
 
 ```python
-import json
-
-from locust import task, HttpUser, LoadTestShape, constant_pacing
+from locust import HttpUser, LoadTestShape, constant_pacing, task
 
 import src.tests.__common.helpers.add_arguments_helper  # noqa: F401
 # import src.tests.__common.hooks.prometheus_hooks  # noqa F401
@@ -118,34 +116,18 @@ import src.tests.__common.hooks.influxdb2_hooks  # noqa F401
 from src.tests.__common.clients.httpx_client import HttpClient
 from src.tests.__common.decorators.transaction import Transaction
 from src.tests.__common.helpers.property_helper import PropertyHelper
-from src.tests.__common.models.stage.stages_config import StagesConfig
-
-# Профиль нагрузки по умолчанию
-STAGES = [{"duration": 60, "users": 1, "spawn_rate": 1}]
 
 
 # Сценарий
 class GetAccounts(HttpUser):
-    # Хост
     host = "localhost"
-    # Клиент HTTPX
-    httpx_client = None
-
+    
+    # Действие перед тестом
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        # Параметры из системы
         options = self.environment.parsed_options
-        # Debug enable
         self.debug_enable = options.DEBUG_ENABLE.strip().lower() == "true"
-        # Pacing
         self.__class__.wait_time = constant_pacing(options.PACING)
-        # Профиль нагрузки
-        stages_str = options.STAGES
-        if stages_str is not None:
-            StagesConfig.model_validate_json(stages_str)
-            global STAGES
-            STAGES = json.loads(stages_str)
-        # Properties
         self.properties = PropertyHelper.read_properties(
             options.PROPERTIES,
             "src/resources/properties/__common/common_properties.json",
@@ -153,14 +135,12 @@ class GetAccounts(HttpUser):
             "src/resources/properties/tests/system_fake_bank/__groups/fake_bank_host.json",
             "src/resources/properties/tests/system_fake_bank/t1_get_accounts/get_accounts_properties.json"
         )
-    
-    # Действие перед тестом
-    def on_start(self) -> None:
+        
         # Инициализация httpx клиента
         self.httpx_client = HttpClient(
             timeout=10.0,
             client_url=self.properties.get("FAKE_BANK_HOST"),
-            environment=self.environment
+            environment=self.environment,
         )
     
     # Тест
@@ -174,20 +154,17 @@ class GetAccounts(HttpUser):
 
         if self.debug_enable:
             self.environment.runner.quit()
-    
+
     # Действие после теста
     def on_stop(self) -> None:
-        # Закрываем клиент
         self.httpx_client.close()
-
 
 # Нагрузка
 class StagesShape(LoadTestShape):
-    def tick(self) -> tuple[int, int] | None:
-        run_time = self.get_run_time()
-        for stage in STAGES:
-            if run_time < stage["duration"]:
-                return stage["users"], stage["spawn_rate"]
+    def tick(self) -> tuple[int, float] | None:
+        for stage in self.stages:
+            if self.get_run_time() < stage.duration:
+                return stage.users, stage.spawn_rate
         return None
 ```
 
@@ -218,8 +195,8 @@ self.properties = PropertyHelper.read_properties(
 
 ### Наименование переменных
 
-- Для имен переменных JS использовать **lowerCamelCase**
-- Для названия классов JS использовать **UpperCamelCase**
+- Для имен переменных python использовать **lowerCamelCase**
+- Для названия классов python использовать **UpperCamelCase**
 - Аббревиатуры также писать CamelCase, например **SqlSelect**, а не **SQLSelect**
 - Для названия каталогов и файлов использовать **lower_snake_case**
 
@@ -240,22 +217,24 @@ self.properties = PropertyHelper.read_properties(
 
 ```json
 {
-  "elements": {
-    "t1_create_users": {
-      "x": 300,
-      "y": 160,
-      "profile": {
+  "ELEMENTS": {
+    "t1_get_accounts": {
+      "X": 300,
+      "Y": 160,
+      "PROFILE": {
         "RUN": {
-          "ENV": "input/env/redis/redis.json",
+          "ENV": [
+            "input/env/redis/redis.json"
+          ],
           "LOAD_GENERATOR": "localhost",
-          "TEST_PATH": "src/tests/system_reqres/t1_create_users/create_users_scenario.py"
+          "TEST_PATH": "src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py"
         },
         "PROFILE": {
           "GET_ACCOUNTS_SCENARIO": {
             "PACING": 10,
             "STEPS": [
               {
-                "TPS": 0.1,
+                "TPS": 0.5,
                 "RAMP_TIME": 1,
                 "HOLD_TIME": 3
               },
@@ -268,18 +247,57 @@ self.properties = PropertyHelper.read_properties(
           }
         },
         "PROPERTIES": {
-          "REDIS_KEY_ADD": "reqres_t1_create_users"
+          "REDIS_KEY_ADD": "users_t1_get_accounts"
+        }
+      }
+    },
+    "t2_kafka": {
+      "X": 400,
+      "Y": 280,
+      "PROFILE": {
+        "RUN": {
+          "ENV": [
+            "input/env/redis/redis.json"
+          ],
+          "LOAD_GENERATOR": "localhost",
+          "TEST_PATH": "src/tests/system_fake_bank/t2_kafka/kafka_scenario.py"
+        },
+        "PROFILE": {
+          "REGISTRATION_SCENARIO": {
+            "PACING": 5,
+            "STEPS": [
+              {
+                "TPS": 0.5,
+                "RAMP_TIME": 1,
+                "HOLD_TIME": 5
+              },
+              {
+                "TPS": 1.0,
+                "RAMP_TIME": 1,
+                "HOLD_TIME": 5
+              }
+            ]
+          }
+        },
+        "PROPERTIES": {
+          "REDIS_KEY_READ": "users_t1_get_accounts"
         }
       }
     }
   },
-  "connections": [
+  "CONNECTIONS": [
+    {
+      "FROM": "users_t1_get_accounts",
+      "TO": "t2_kafka",
+      "TYPE": "->",
+      "DIRECTION": "uni"
+    }
   ],
-  "form": {
-    "x": 50,
-    "y": 50,
-    "width": 1280,
-    "height": 720
+  "FORM": {
+    "X": 50,
+    "Y": 50,
+    "WIDTH": 1280,
+    "HEIGHT": 720
   },
   "COMMON_SETTINGS": {
     "RUN_SETTINGS": {
@@ -288,12 +306,12 @@ self.properties = PropertyHelper.read_properties(
       "INFLUX_ORG": "monitoring",
       "PROMETHEUS_PORT": "9646",
       "PROFILE_NAME": "debug_profile",
-      "SYSTEM_NAME": "reqres",
+      "SYSTEM_NAME": "fake_bank",
       "PERCENT_PROFILE": 1.0,
       "LOG_LEVEL": "INFO"
     },
     "PROPERTIES": {
-      "DEBUG_ENABLE": "true"
+      "DEBUG_ENABLE": "false"
     }
   }
 }
@@ -356,7 +374,7 @@ locust -f src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py --
 Запуск теста:
 
 ```bash
-locust -f src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py --headless --DEBUG_ENABLE=false --PACING=1.0 --STAGES='[{"duration":60,"users":1,"spawn_rate":1},{"duration":120,"users":2,"spawn_rate":1}]' --PROPERTIES='{"TEST_PROPERTY":"123"}'
+locust -f src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py --headless --DEBUG_ENABLE=False --PACING=1.0 --STAGES='[{"duration":60,"users":1,"spawn_rate":1},{"duration":120,"users":2,"spawn_rate":1}]' --PROPERTIES='{"TEST_PROPERTY":"123"}'
 ```
 
 Описание параметров запуска тестов:
@@ -395,13 +413,15 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
 
 ```json
 {
-  "elements": {
+  "ELEMENTS": {
     "t1_get_accounts": {
-      "x": 300,
-      "y": 160,
-      "profile": {
+      "X": 300,
+      "Y": 160,
+      "PROFILE": {
         "RUN": {
-          "ENV": "input/env/redis/redis.json",
+          "ENV": [
+            "input/env/redis/redis.json"
+          ],
           "LOAD_GENERATOR": "localhost",
           "TEST_PATH": "src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py"
         },
@@ -410,7 +430,7 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
             "PACING": 10,
             "STEPS": [
               {
-                "TPS": 0.1,
+                "TPS": 0.5,
                 "RAMP_TIME": 1,
                 "HOLD_TIME": 3
               },
@@ -428,11 +448,13 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
       }
     },
     "t2_kafka": {
-      "x": 400,
-      "y": 280,
-      "profile": {
+      "X": 400,
+      "Y": 280,
+      "PROFILE": {
         "RUN": {
-          "ENV": "input/env/redis/redis.json",
+          "ENV": [
+            "input/env/redis/redis.json"
+          ],
           "LOAD_GENERATOR": "localhost",
           "TEST_PATH": "src/tests/system_fake_bank/t2_kafka/kafka_scenario.py"
         },
@@ -459,19 +481,19 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
       }
     }
   },
-  "connections": [
+  "CONNECTIONS": [
     {
-      "from": "users_t1_get_accounts",
-      "to": "t2_kafka",
-      "type": "->",
-      "direction": "uni"
+      "FROM": "users_t1_get_accounts",
+      "TO": "t2_kafka",
+      "TYPE": "->",
+      "DIRECTION": "uni"
     }
   ],
-  "form": {
-    "x": 50,
-    "y": 50,
-    "width": 1280,
-    "height": 720
+  "FORM": {
+    "X": 50,
+    "Y": 50,
+    "WIDTH": 1280,
+    "HEIGHT": 720
   },
   "COMMON_SETTINGS": {
     "RUN_SETTINGS": {
@@ -485,7 +507,7 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
       "LOG_LEVEL": "INFO"
     },
     "PROPERTIES": {
-      "DEBUG_ENABLE": "true"
+      "DEBUG_ENABLE": "false"
     }
   }
 }
@@ -503,13 +525,15 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
 
 ```json
 {
-  "elements": {
+  "ELEMENTS": {
     "t1_get_accounts": {
-      "x": 300,
-      "y": 160,
-      "profile": {
+      "X": 300,
+      "Y": 160,
+      "PROFILE": {
         "RUN": {
-          "ENV": "input/env/redis/redis.json",
+          "ENV": [
+            "input/env/redis/redis.json"
+          ],
           "LOAD_GENERATOR": "localhost",
           "TEST_PATH": "src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py"
         },
@@ -518,7 +542,7 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
             "PACING": 10,
             "STEPS": [
               {
-                "TPS": 0.1,
+                "TPS": 0.5,
                 "RAMP_TIME": 1,
                 "HOLD_TIME": 3
               },
@@ -536,11 +560,13 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
       }
     },
     "t2_kafka": {
-      "x": 400,
-      "y": 280,
-      "profile": {
+      "X": 400,
+      "Y": 280,
+      "PROFILE": {
         "RUN": {
-          "ENV": "input/env/redis/redis.json",
+          "ENV": [
+            "input/env/redis/redis.json"
+          ],
           "LOAD_GENERATOR": "localhost",
           "TEST_PATH": "src/tests/system_fake_bank/t2_kafka/kafka_scenario.py"
         },
@@ -567,19 +593,19 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
       }
     }
   },
-  "connections": [
+  "CONNECTIONS": [
     {
-      "from": "users_t1_get_accounts",
-      "to": "t2_kafka",
-      "type": "->",
-      "direction": "uni"
+      "FROM": "users_t1_get_accounts",
+      "TO": "t2_kafka",
+      "TYPE": "->",
+      "DIRECTION": "uni"
     }
   ],
-  "form": {
-    "x": 50,
-    "y": 50,
-    "width": 1280,
-    "height": 720
+  "FORM": {
+    "X": 50,
+    "Y": 50,
+    "WIDTH": 1280,
+    "HEIGHT": 720
   },
   "COMMON_SETTINGS": {
     "RUN_SETTINGS": {
@@ -593,7 +619,7 @@ java -jar agent.jar -url http://localhost:8080/ -secret 0000000000000000 -name t
       "LOG_LEVEL": "INFO"
     },
     "PROPERTIES": {
-      "DEBUG_ENABLE": "true"
+      "DEBUG_ENABLE": "false"
     }
   }
 }

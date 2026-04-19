@@ -180,11 +180,11 @@ class ProfileLogHelper:
 
     @staticmethod
     def get_scenario_entries(input_data: TestsParam) -> List[Dict[str, Any]]:
-        elements = input_data.elements
+        elements = input_data.ELEMENTS
         scenarios: List[Dict[str, Any]] = []
 
         for element_name, element in elements.items():
-            profile_root = element.profile.PROFILE
+            profile_root = element.PROFILE.PROFILE
             for scenario_name, scenario in profile_root.items():
                 if scenario.STEPS:
                     scenarios.append(

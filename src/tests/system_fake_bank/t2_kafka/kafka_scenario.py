@@ -1,5 +1,3 @@
-import json
-
 from locust import task, HttpUser, LoadTestShape, events, constant_pacing
 
 import src.tests.__common.helpers.add_arguments_helper  # noqa: F401
@@ -7,9 +5,6 @@ import src.tests.__common.helpers.add_arguments_helper  # noqa: F401
 import src.tests.__common.hooks.influxdb2_hooks  # noqa F401
 from src.tests.__common.decorators.transaction import Transaction
 from src.tests.__common.helpers.property_helper import PropertyHelper
-from src.tests.__common.models.stage.stages_config import StagesConfig
-
-STAGES = [{"duration": 60, "users": 1, "spawn_rate": 1}]
 
 
 class KafkaSend(HttpUser):
@@ -20,18 +15,10 @@ class KafkaSend(HttpUser):
         options = self.environment.parsed_options
         self.debug_enable = options.DEBUG_ENABLE.strip().lower() == "true"
         self.__class__.wait_time = constant_pacing(options.PACING)
-        stages_str = options.STAGES
-        if stages_str is not None:
-            StagesConfig.model_validate_json(stages_str)
-            global STAGES
-            STAGES = json.loads(stages_str)
         self.properties = PropertyHelper.read_properties(
             options.PROPERTIES,
             "src/resources/properties/tests/system_fake_bank/t2_kafka/kafka_properties.json"
         )
-
-    def on_start(self) -> None:
-        pass
 
     @task
     @Transaction("uc_fake_bank_1_kafka_send")
@@ -48,14 +35,10 @@ class KafkaSend(HttpUser):
         if self.debug_enable:
             self.environment.runner.quit()
 
-    def on_stop(self) -> None:
-        pass
-
 
 class StagesShape(LoadTestShape):
-    def tick(self) -> tuple[int, int] | None:
-        run_time = self.get_run_time()
-        for stage in STAGES:
-            if run_time < stage["duration"]:
-                return stage["users"], stage["spawn_rate"]
+    def tick(self) -> tuple[int, float] | None:
+        for stage in self.stages:
+            if self.get_run_time() < stage.duration:
+                return stage.users, stage.spawn_rate
         return None

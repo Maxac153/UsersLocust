@@ -18,7 +18,7 @@ class PropertyHelper:
         # Параметры из .env (redis_login, redis_password, db_login, db_password, ...)
         env = properties.get("ENV")
         if env:
-            for path in env.split(","):
+            for path in env:
                 with open(path, 'r', encoding='utf-8') as f:
                     properties.update(json.load(f))
 
