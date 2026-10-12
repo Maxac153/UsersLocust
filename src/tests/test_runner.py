@@ -51,20 +51,20 @@ class LocustCommandBuilder:
     def build_all(self) -> list[LocustRun]:
         return [
             self.build(test_name, element, scenario_name)
-            for test_name, element in self.profiles.elements.items()
-            for scenario_name in element.profile.PROFILE
+            for test_name, element in self.profiles.ELEMENTS.items()
+            for scenario_name in element.PROFILE.PROFILE
         ]
 
     def build(self, test_name: str, element: Element, scenario_name: str) -> LocustRun:
         run_id = f"{test_name}/{scenario_name}"
-        scenario = element.profile.PROFILE[scenario_name]
+        scenario = element.PROFILE.PROFILE[scenario_name]
         plan = ProfileHelper.close_profile(scenario, self.debug_enable)
         self.warn_tps_deviations(run_id, scenario, plan.pacing)
 
         output_dir = self.output_dir / test_name
         command = [
             *LOW_PRIORITY_PREFIX,
-            "locust", "-f", element.profile.RUN.TEST_PATH,
+            "locust", "-f", element.PROFILE.RUN.TEST_PATH,
             f"--DEBUG_ENABLE={bool_to_cli(self.debug_enable)}",
             f"--PACING={plan.pacing}",
             f"--STAGES={StagesConfig(plan.stages).model_dump_json()}",
@@ -77,13 +77,13 @@ class LocustCommandBuilder:
         ]
         return LocustRun(run_id=run_id, command=command, output_dir=output_dir)
 
-    def merge_properties(self, element: Element) -> dict[str, str]:
+    def merge_properties(self, element: Element) -> dict[str, str | list[str]]:
         # Common properties are defaults: anything set on the test itself must win
-        env_properties = {"ENV": element.profile.RUN.ENV} if element.profile.RUN.ENV else {}
+        env_properties = {"ENV": element.PROFILE.RUN.ENV} if element.PROFILE.RUN.ENV else {}
         return {
             **self.profiles.COMMON_SETTINGS.PROPERTIES,
             **env_properties,
-            **element.profile.PROPERTIES,
+            **element.PROFILE.PROPERTIES,
         }
 
     def warn_tps_deviations(self, run_id: str, scenario: Scenario, pacing: float) -> None:
@@ -221,7 +221,7 @@ def parse_args() -> argparse.Namespace:
         default="src/resources/profiles/debug_profile.json",
         help="Path to profile .json"
     )
-    parser.add_argument("--DEBUG_ENABLE", type=str_to_bool, default=True, help="Debug Enable")
+    parser.add_argument("--DEBUG_ENABLE", type=str_to_bool, default=False, help="Debug Enable")
     return parser.parse_args()
 
 
@@ -232,8 +232,8 @@ def load_profile(path: str) -> TestsParam:
 
 def apply_percent_profile(profiles: TestsParam) -> None:
     percent = profiles.COMMON_SETTINGS.RUN_SETTINGS.PERCENT_PROFILE
-    for element in profiles.elements.values():
-        for scenario in element.profile.PROFILE.values():
+    for element in profiles.ELEMENTS.values():
+        for scenario in element.PROFILE.PROFILE.values():
             for step in scenario.STEPS:
                 step.TPS *= percent
 

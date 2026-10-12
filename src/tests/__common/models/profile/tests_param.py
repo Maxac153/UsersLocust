@@ -9,7 +9,7 @@ from src.tests.__common.models.profile.form import Form
 
 
 class TestsParam(BaseModel):
-    elements: Dict[str, Element]
-    connections: List[Connection]
-    form: Form
+    ELEMENTS: Dict[str, Element]
+    CONNECTIONS: List[Connection]
+    FORM: Form
     COMMON_SETTINGS: CommonSettings

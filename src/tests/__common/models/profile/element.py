@@ -4,6 +4,6 @@ from src.tests.__common.models.profile.profile import Profile
 
 
 class Element(BaseModel):
-    x: int
-    y: int
-    profile: Profile
+    X: int
+    Y: int
+    PROFILE: Profile

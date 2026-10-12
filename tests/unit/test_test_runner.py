@@ -19,12 +19,12 @@ from src.tests.test_runner import (
 LOGGER = logging.getLogger("test_runner_tests")
 
 
-def element(test_path: str, scenarios: dict, properties: dict, env: str = "input/env/redis/redis.json") -> dict:
+def element(test_path: str, scenarios: dict, properties: dict, env: list[str] | None = None) -> dict:
     return {
-        "x": 0,
-        "y": 0,
-        "profile": {
-            "RUN": {"ENV": env, "LOAD_GENERATOR": "localhost", "TEST_PATH": test_path},
+        "X": 0,
+        "Y": 0,
+        "PROFILE": {
+            "RUN": {"ENV": ["input/env/redis/redis.json"] if env is None else env, "LOAD_GENERATOR": "localhost", "TEST_PATH": test_path},
             "PROFILE": scenarios,
             "PROPERTIES": properties,
         },
@@ -37,9 +37,9 @@ def scenario(pacing: float = 10, tps: float = 0.5) -> dict:
 
 def make_profiles(elements: dict, common_properties: dict | None = None, percent: float = 1.0) -> ProfileModel:
     return ProfileModel.model_validate({
-        "elements": elements,
-        "connections": [],
-        "form": {"x": 0, "y": 0, "width": 1, "height": 1},
+        "ELEMENTS": elements,
+        "CONNECTIONS": [],
+        "FORM": {"X": 0, "Y": 0, "WIDTH": 1, "HEIGHT": 1},
         "COMMON_SETTINGS": {
             "RUN_SETTINGS": {
                 "DATASOURCE_URL": "http://localhost:8086", "INFLUX_BUCKET": "metrics", "INFLUX_ORG": "monitoring",
@@ -76,14 +76,14 @@ class TestMergeProperties:
         assert properties["COMMON_ONLY"] == "1"
 
     def test_run_env_is_passed_to_property_helper(self, tmp_path):
-        profiles = make_profiles({"t1": element("t1.py", {"S1": scenario()}, {}, env="a.json,b.json")})
+        profiles = make_profiles({"t1": element("t1.py", {"S1": scenario()}, {}, env=["a.json", "b.json"])})
 
         [run] = builder(profiles, tmp_path).build_all()
 
-        assert json.loads(option(run.command, "--PROPERTIES"))["ENV"] == "a.json,b.json"
+        assert json.loads(option(run.command, "--PROPERTIES"))["ENV"] == ["a.json", "b.json"]
 
     def test_empty_run_env_is_omitted(self, tmp_path):
-        profiles = make_profiles({"t1": element("t1.py", {"S1": scenario()}, {}, env="")})
+        profiles = make_profiles({"t1": element("t1.py", {"S1": scenario()}, {}, env=[])})
 
         [run] = builder(profiles, tmp_path).build_all()
 
@@ -97,7 +97,7 @@ class TestMergeProperties:
 
         builder(profiles, tmp_path).build_all()
 
-        assert profiles.elements["t1"].profile.PROPERTIES == {"OWN": "1"}
+        assert profiles.ELEMENTS["t1"].PROFILE.PROPERTIES == {"OWN": "1"}
 
 
 class TestOutputPaths:
@@ -136,7 +136,7 @@ def test_apply_percent_profile_scales_tps():
 
     apply_percent_profile(profiles)
 
-    assert profiles.elements["t1"].profile.PROFILE["S1"].STEPS[0].TPS == 1.0
+    assert profiles.ELEMENTS["t1"].PROFILE.PROFILE["S1"].STEPS[0].TPS == 1.0
 
 
 def test_percent_profile_must_be_positive():

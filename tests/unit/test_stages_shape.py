@@ -3,14 +3,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.tests.__common.shapes.stages_shape import DEFAULT_STAGES, StagesShape
+from src.tests.__common.shapes.stages_shape import DEFAULT_STAGES, StagesShape, load_stages_on_init
 
 STAGES_JSON = '[{"duration": 10, "users": 2, "spawn_rate": 0.5}, {"duration": 30, "users": 4, "spawn_rate": 1}]'
 
 
 def make_shape(stages_json: str | None, run_time: float) -> StagesShape:
     shape = StagesShape()
-    shape.runner = SimpleNamespace(environment=SimpleNamespace(parsed_options=Namespace(STAGES=stages_json)))
+    load_stages_on_init(SimpleNamespace(shape_class=shape, parsed_options=Namespace(STAGES=stages_json)))
     shape.get_run_time = lambda: run_time
     return shape
 
@@ -30,9 +30,17 @@ def test_defaults_without_stages_option():
     assert make_shape(None, 0).tick() == (first.users, first.spawn_rate)
 
 
-def test_invalid_stages_fail_loudly():
+def test_invalid_stages_fail_at_init():
     with pytest.raises(ValueError):
-        make_shape('[{"duration": 0, "users": 1, "spawn_rate": 1}]', 0).tick()
+        make_shape('[{"duration": 0, "users": 1, "spawn_rate": 1}]', 0)
+
+
+def test_init_ignores_foreign_shapes():
+    environment = SimpleNamespace(shape_class=None, parsed_options=Namespace(STAGES=STAGES_JSON))
+
+    load_stages_on_init(environment)
+
+    assert environment.shape_class is None
 
 
 def test_stages_are_independent_per_shape_instance():

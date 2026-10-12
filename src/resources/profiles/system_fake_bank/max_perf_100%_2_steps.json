@@ -1,11 +1,13 @@
 {
-  "elements": {
+  "ELEMENTS": {
     "t1_get_accounts": {
-      "x": 300,
-      "y": 160,
-      "profile": {
+      "X": 300,
+      "Y": 160,
+      "PROFILE": {
         "RUN": {
-          "ENV": "input/env/redis/redis.json",
+          "ENV": [
+            "input/env/redis/redis.json"
+          ],
           "LOAD_GENERATOR": "localhost",
           "TEST_PATH": "src/tests/system_fake_bank/t1_get_accounts/get_accounts_scenario.py"
         },
@@ -32,11 +34,13 @@
       }
     },
     "t2_kafka": {
-      "x": 400,
-      "y": 280,
-      "profile": {
+      "X": 400,
+      "Y": 280,
+      "PROFILE": {
         "RUN": {
-          "ENV": "input/env/redis/redis.json",
+          "ENV": [
+            "input/env/redis/redis.json"
+          ],
           "LOAD_GENERATOR": "localhost",
           "TEST_PATH": "src/tests/system_fake_bank/t2_kafka/kafka_scenario.py"
         },
@@ -63,19 +67,19 @@
       }
     }
   },
-  "connections": [
+  "CONNECTIONS": [
     {
-      "from": "users_t1_get_accounts",
-      "to": "t2_kafka",
-      "type": "->",
-      "direction": "uni"
+      "FROM": "users_t1_get_accounts",
+      "TO": "t2_kafka",
+      "TYPE": "->",
+      "DIRECTION": "uni"
     }
   ],
-  "form": {
-    "x": 50,
-    "y": 50,
-    "width": 1280,
-    "height": 720
+  "FORM": {
+    "X": 50,
+    "Y": 50,
+    "WIDTH": 1280,
+    "HEIGHT": 720
   },
   "COMMON_SETTINGS": {
     "RUN_SETTINGS": {
