@@ -34,3 +34,5 @@ pytest = ">=9.0,<10.0"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+# pytest plugins import ssl before locust monkey-patches it; irrelevant for unit tests
+filterwarnings = ["ignore::gevent.monkey.MonkeyPatchWarning"]

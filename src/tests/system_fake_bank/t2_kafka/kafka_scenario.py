@@ -35,7 +35,7 @@ class KafkaSend(HttpUser):
 
     @task
     @Transaction("uc_fake_bank_1_kafka_send")
-    def kafka_scenario(self) -> Exception | None:
+    def kafka_scenario(self) -> None:
         events.request.fire(
             request_type="KAFKA",
             name="ur_fake_bank_1.2_kafka_send_accounts",
