@@ -28,3 +28,11 @@ dependencies = [
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+[tool.poetry.group.dev.dependencies]
+pytest = ">=9.0,<10.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# pytest plugins import ssl before locust monkey-patches it; irrelevant for unit tests
+filterwarnings = ["ignore::gevent.monkey.MonkeyPatchWarning"]
