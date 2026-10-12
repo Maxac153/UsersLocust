@@ -26,13 +26,17 @@ class GetAccounts(HttpUser):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         options = self.environment.parsed_options
-        self.debug_enable = bool(options.DEBUG_ENABLE)
-        self.wait_time = constant_pacing(options.PACING)
+        self.debug_enable = options.DEBUG_ENABLE
+        self._pacing_wait = constant_pacing(options.PACING)
 
         self.properties = PropertyHelper.read_properties(
             options.PROPERTIES,
             *FILES,
         )
+
+    def wait_time(self) -> float:
+        # constant_pacing returns an unbound function(user); assigning it to the instance would drop `self`
+        return self._pacing_wait(self)
 
     def on_start(self) -> None:
         self.httpx_client = HttpClient(
@@ -62,7 +66,6 @@ class StagesShape(LoadTestShape):
     def tick(self) -> tuple[int, float] | None:
         if self._stages is None:
             self._stages = self._load_stages()
-        print(self._stages)
 
         run_time = self.get_run_time()
 

@@ -6,6 +6,7 @@ from logging import Logger
 from pathlib import Path
 from typing import Any, Dict, List
 
+from src.tests.__common.helpers.profile_helper import ProfileHelper
 from src.tests.__common.models.profile.scenario import Scenario
 from src.tests.__common.models.profile.tests_param import TestsParam
 
@@ -42,14 +43,7 @@ class ProfileLogHelper:
 
     @staticmethod
     def calculate_profile_duration(scenario: Scenario) -> float:
-        if not scenario.STEPS:
-            return 0
-        total = 0
-        for step in scenario.STEPS:
-            ramp_time = float(getattr(step, "RAMP_TIME", 0))
-            hold_time = float(getattr(step, "HOLD_TIME", 0))
-            total += (ramp_time + hold_time) * 60
-        return total
+        return ProfileHelper.scenario_duration_seconds(scenario)
 
     @staticmethod
     def create_logs_dir(base_dir: str, profile_name: str, date_now: str, date_time_now: str) -> str:
@@ -71,11 +65,8 @@ class ProfileLogHelper:
         pacing = scenario.PACING
 
         for i, step in enumerate(scenario.STEPS):
-            ramp_time = float(getattr(step, "RAMP_TIME", 0))
-            hold_time = float(getattr(step, "HOLD_TIME", 0))
-
-            step_start += timedelta(minutes=ramp_time)
-            step_end = step_start + timedelta(minutes=hold_time)
+            step_start += timedelta(minutes=step.RAMP_TIME)
+            step_end = step_start + timedelta(minutes=step.HOLD_TIME)
 
             start_ms = int(step_start.timestamp() * 1000)
             end_ms = int(step_end.timestamp() * 1000)
@@ -90,9 +81,7 @@ class ProfileLogHelper:
 
             step_start = step_end
 
-        first_step = scenario.STEPS[0] if scenario.STEPS else None
-        first_ramp_minutes = float(getattr(first_step, "RAMP_TIME", 0)) if first_step else 0
-        ramp_up_end_time = start_date + timedelta(minutes=first_ramp_minutes)
+        ramp_up_end_time = start_date + timedelta(minutes=scenario.STEPS[0].RAMP_TIME)
 
         start_ms = int(start_date.timestamp() * 1000)
         end_ms = int(end_date.timestamp() * 1000)
@@ -204,10 +193,10 @@ class ProfileLogHelper:
             date_now: str = datetime.now().strftime("%Y-%m-%d"),
             date_time_now: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
             logger: Logger = None,
-            debug_enable: str = "true",
+            debug_enable: bool = True,
     ) -> None:
         run_settings = input_data.COMMON_SETTINGS.RUN_SETTINGS
-        if debug_enable == "true":
+        if debug_enable:
             logger.info("DEBUG_ENABLE = true: Skipping Profile Logging")
             return
 

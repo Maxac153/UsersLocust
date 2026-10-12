@@ -18,7 +18,7 @@ class KafkaSend(HttpUser):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         options = self.environment.parsed_options
-        self.debug_enable = options.DEBUG_ENABLE.strip().lower() == "true"
+        self.debug_enable = options.DEBUG_ENABLE
         self.__class__.wait_time = constant_pacing(options.PACING)
         stages_str = options.STAGES
         if stages_str is not None:

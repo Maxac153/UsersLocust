@@ -9,17 +9,20 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import List
 
+from src.tests.__common.helpers.cli_helper import bool_to_cli, str_to_bool
 from src.tests.__common.helpers.logger_helper import LoggerHelper
 from src.tests.__common.helpers.profile_helper import ProfileHelper
 from src.tests.__common.helpers.profile_log_helper import ProfileLogHelper
+from src.tests.__common.models.profile.scenario import Scenario
 from src.tests.__common.models.profile.tests_param import TestsParam
+from src.tests.__common.models.stage.stages_config import StagesConfig
 
 
 class ParallelLocustRunner:
     def __init__(
             self,
             profiles: TestsParam,
-            debug_enable: str = "true",
+            debug_enable: bool = True,
             date_now_str: str = datetime.now().strftime("%Y-%m-%d"),
             data_time_now_str: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     ) -> None:
@@ -46,13 +49,15 @@ class ParallelLocustRunner:
         for test_name in self.profiles.elements:
             test = self.profiles.elements[test_name]
             for scenario_name in test.profile.PROFILE:
-                pacing, stages = ProfileHelper.close_profile(scenario_name, self.debug_enable, test.profile)
+                scenario = test.profile.PROFILE[scenario_name]
+                plan = ProfileHelper.close_profile(scenario, self.debug_enable)
+                self.warn_tps_deviations(f"{test_name}/{scenario_name}", scenario, plan.pacing)
                 test.profile.PROPERTIES.update(self.common_settings)
                 cmd = [
                     "locust", "-f", test.profile.RUN.TEST_PATH,
-                    f"--DEBUG_ENABLE={self.debug_enable}",
-                    f"--PACING={pacing}",
-                    f"--STAGES={json.dumps(stages)}",
+                    f"--DEBUG_ENABLE={bool_to_cli(self.debug_enable)}",
+                    f"--PACING={plan.pacing}",
+                    f"--STAGES={StagesConfig(plan.stages).model_dump_json()}",
                     f"--PROPERTIES={json.dumps(test.profile.PROPERTIES)}",
                     "--host=localhost",
                     "--headless",
@@ -63,6 +68,16 @@ class ParallelLocustRunner:
                 commands.append(cmd)
 
         return commands
+
+    def warn_tps_deviations(self, scenario_id: str, scenario: Scenario, pacing: float) -> None:
+        if self.debug_enable:
+            return
+        for deviation in ProfileHelper.tps_deviations(scenario, pacing):
+            self.logger.warning(
+                "%s Step #%d: Target TPS %.3f, Actual TPS %.3f (%+.1f%%) Due To Users Rounding At Pacing %.2fs",
+                scenario_id, deviation.step_number, deviation.target_tps,
+                deviation.actual_tps, deviation.percent, pacing,
+            )
 
     def log_reader(self, process: subprocess.Popen, prefix: str) -> None:
         """Reads Process Logs In Real-Time With Prefix"""
@@ -173,8 +188,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--DEBUG_ENABLE",
-        type=str,
-        default="true",
+        type=str_to_bool,
+        default=True,
         help="Debug Enable"
     )
     args = parser.parse_args()
